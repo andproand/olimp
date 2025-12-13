@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Olympiad {
+  id            Int       @id @default(autoincrement())
+  name          String
+  organizer     String?
+  ministryLevel Int?      // 1, 2, 3 or null
+  website       String?
+  login         String?
+  password      String?
+  priority      String    @default("Medium") // Low, Medium, High
+  description   String?
+  contacts      String?
+  profiles      Profile[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Profile {
+  id          Int       @id @default(autoincrement())
+  subject     String    // Physics, Math, IT, etc.
+  level       Int?      // 1, 2, 3 or null (for "-")
+  description String?
+  olympiadId  Int
+  olympiad    Olympiad  @relation(fields: [olympiadId], references: [id], onDelete: Cascade)
+  stages     Stage[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
+
+model Stage {
+  id             Int       @id @default(autoincrement())
+  name           String    // e.g. "Qualifying Round", "Final"
+  type           String    // Online, Offline
+  startDate      DateTime?
+  endDate        DateTime?
+  regDeadline    DateTime?
+  attempts       Int       @default(1)
+  profileId      Int
+  profile        Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  results        Result[]
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Result {
+  id           Int      @id @default(autoincrement())
+  userScore    Float?
+  passingScore Float?
+  status       String   // Winner, Prize-winner, Participant, Failed, Waiting
+  diplomaLink  String?
+  stageId      Int
+  stage        Stage    @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
