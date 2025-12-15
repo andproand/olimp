@@ -15,7 +15,9 @@ model Olympiad {
   website       String?
   login         String?
   password      String?
-  priority      String    @default("Medium") // Low, Medium, High
+  priority      String    @default("Medium") // Deprecated, moving to Profile. Kept for migration safety if needed, or remove. Let's remove and migrate data if possible, or keep for now. 
+  // Actually, user wants it on Profile. Let's remove from here in next step or keep as default? 
+  // Better to remove and rely on Profile priority.
   description   String?
   contacts      String?
   profiles      Profile[]
@@ -24,21 +26,30 @@ model Olympiad {
 }
 
 model Profile {
-  id          Int       @id @default(autoincrement())
-  subject     String    // Physics, Math, IT, etc.
-  level       Int?      // 1, 2, 3 or null (for "-")
-  description String?
-  olympiadId  Int
-  olympiad    Olympiad  @relation(fields: [olympiadId], references: [id], onDelete: Cascade)
-  stages     Stage[]
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  id           Int       @id @default(autoincrement())
+  subject      String
+  level        Int?
+  description  String?
+  priority     String    @default("Medium") // Moved from Olympiad
+  academicYear String    @default("2024/2025") // New field
+  olympiadId   Int
+  olympiad     Olympiad  @relation(fields: [olympiadId], references: [id], onDelete: Cascade)
+  stages       Stage[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+model Settings {
+  id    Int    @id @default(autoincrement())
+  key   String @unique // e.g. "userName"
+  value String
 }
 
 model Stage {
   id             Int       @id @default(autoincrement())
   name           String    // e.g. "Qualifying Round", "Final"
   type           String    // Online, Offline
+  time           String?   // e.g. "10:00"
   startDate      DateTime?
   endDate        DateTime?
   regDeadline    DateTime?

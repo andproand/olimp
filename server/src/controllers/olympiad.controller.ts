@@ -9,7 +9,11 @@ export const getOlympiads = async (req: Request, res: Response) => {
             include: {
                 profiles: {
                     include: {
-                        stages: true
+                        stages: {
+                            include: {
+                                results: true
+                            }
+                        }
                     }
                 }
             },
@@ -51,13 +55,13 @@ export const getOlympiadById = async (req: Request, res: Response) => {
 
 export const createOlympiad = async (req: Request, res: Response) => {
     console.log('Received body:', req.body);
-    const { name, website, priority, description, contacts, profiles } = req.body;
+    const { name, organizer, website, description, contacts, profiles } = req.body;
     try {
         const olympiad = await prisma.olympiad.create({
             data: {
                 name,
+                organizer,
                 website,
-                priority,
                 description,
                 contacts,
                 profiles: {
@@ -65,10 +69,13 @@ export const createOlympiad = async (req: Request, res: Response) => {
                         subject: p.subject,
                         level: (p.level && p.level !== '-' && !isNaN(Number(p.level))) ? Number(p.level) : null,
                         description: p.description || null,
+                        priority: p.priority || 'Medium',
+                        academicYear: p.academicYear || '2024/2025',
                         stages: {
                             create: (p.stages || []).map((s: any) => ({
                                 name: s.name,
                                 type: s.type || 'Offline',
+                                time: s.time || null,
                                 startDate: (s.startDate && s.startDate !== '') ? new Date(s.startDate) : null,
                                 endDate: (s.endDate && s.endDate !== '') ? new Date(s.endDate) : null,
                                 regDeadline: (s.regDeadline && s.regDeadline !== '') ? new Date(s.regDeadline) : null,
@@ -98,15 +105,15 @@ export const createOlympiad = async (req: Request, res: Response) => {
 
 export const updateOlympiad = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, website, priority, description, contacts, profiles } = req.body;
+    const { name, organizer, website, description, contacts, profiles } = req.body;
     try {
         // 1. Update basic info
         const olympiad = await prisma.olympiad.update({
             where: { id: Number(id) },
             data: {
                 name,
+                organizer,
                 website,
-                priority,
                 description,
                 contacts
             }
@@ -122,7 +129,9 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                         data: {
                             subject: p.subject,
                             level: (p.level && p.level !== '-' && !isNaN(Number(p.level))) ? Number(p.level) : null,
-                            description: p.description
+                            description: p.description,
+                            priority: p.priority,
+                            academicYear: p.academicYear
                         }
                     });
 
@@ -136,6 +145,7 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                                     data: {
                                         name: s.name,
                                         type: s.type,
+                                        time: s.time || null,
                                         startDate: (s.startDate && s.startDate !== '') ? new Date(s.startDate) : null,
                                         endDate: (s.endDate && s.endDate !== '') ? new Date(s.endDate) : null,
                                         regDeadline: (s.regDeadline && s.regDeadline !== '') ? new Date(s.regDeadline) : null,
@@ -147,6 +157,7 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                                     data: {
                                         name: s.name,
                                         type: s.type,
+                                        time: s.time || null,
                                         startDate: (s.startDate && s.startDate !== '') ? new Date(s.startDate) : null,
                                         endDate: (s.endDate && s.endDate !== '') ? new Date(s.endDate) : null,
                                         regDeadline: (s.regDeadline && s.regDeadline !== '') ? new Date(s.regDeadline) : null,
@@ -163,11 +174,14 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                             subject: p.subject,
                             level: (p.level && p.level !== '-' && !isNaN(Number(p.level))) ? Number(p.level) : null,
                             description: p.description || null,
+                            priority: p.priority || 'Medium',
+                            academicYear: p.academicYear || '2024/2025',
                             olympiadId: Number(id),
                             stages: {
                                 create: (p.stages || []).map((s: any) => ({
                                     name: s.name,
                                     type: s.type || 'Offline',
+                                    time: s.time || null,
                                     startDate: (s.startDate && s.startDate !== '') ? new Date(s.startDate) : null,
                                     endDate: (s.endDate && s.endDate !== '') ? new Date(s.endDate) : null,
                                     regDeadline: (s.regDeadline && s.regDeadline !== '') ? new Date(s.regDeadline) : null,

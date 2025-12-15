@@ -1,50 +1,28 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, CheckCircle2, XCircle, Hourglass, AlertCircle, MinusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-interface CalendarEvent {
-    id: number;
-    olympiadName: string;
-    subject: string;
-    stageName: string;
-    startDate: string;
-    endDate: string;
-    status: 'urgent' | 'approaching' | 'done' | 'lost' | 'future';
-}
-
-// Mock data generator for visualization (until backend provides full status)
-// In a real scenario, this logic might move to the backend or a utility function
-const getStatus = (start: Date, end: Date): CalendarEvent['status'] => {
-    const now = new Date();
-    if (now > end) return 'done'; // Simplified
-    if (now >= start && now <= end) return 'approaching';
-    const diffDays = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays < 3) return 'urgent';
-    if (diffDays < 14) return 'approaching';
-    return 'future';
+const getStatusIcon = (status?: string | null) => {
+    if (!status) return null;
+    const s = status.toLowerCase();
+    if (s.includes('winner') || s.includes('prize') || s.includes('passed') || s.includes('победитель') || s.includes('призер')) return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+    if (s.includes('failed') || s.includes('не прошел')) return <XCircle className="w-4 h-4 text-red-500" />;
+    if (s.includes('waiting') || s.includes('ожидание')) return <Hourglass className="w-4 h-4 text-yellow-500" />;
+    if (s.includes('participant') || s.includes('участник')) return <AlertCircle className="w-4 h-4 text-blue-500" />;
+    if (s.includes('not') || s.includes('не')) return <MinusCircle className="w-4 h-4 text-slate-500" />;
+    return null;
 };
 
-const getStatusColor = (status: CalendarEvent['status']) => {
-    switch (status) {
-        case 'urgent': return 'bg-red-500/20 border-red-500/50 text-red-300 animate-pulse';
-        case 'approaching': return 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300';
-        case 'done': return 'bg-green-500/10 border-green-500/30 text-green-500/50';
-        case 'lost': return 'bg-slate-700/50 border-slate-600 text-slate-500';
-        case 'future': return 'bg-blue-500/20 border-blue-500/50 text-blue-300';
-        default: return 'bg-slate-800 border-slate-700 text-slate-400';
-    }
-};
+const formatDateRange = (startStr: string, endStr: string) => {
+    const start = new Date(startStr);
+    const end = new Date(endStr);
+    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'numeric' };
 
-const getStatusLabel = (status: CalendarEvent['status']) => {
-    switch (status) {
-        case 'urgent': return '⚠️ Срочно';
-        case 'approaching': return '⏳ Скоро';
-        case 'done': return '✅ Завершено';
-        case 'lost': return '❌ Пропущено';
-        case 'future': return '⚪ Планируется';
+    if (start.getTime() === end.getTime()) {
+        return start.toLocaleDateString('ru-RU', options);
     }
+    return `${start.toLocaleDateString('ru-RU', options)} - ${end.toLocaleDateString('ru-RU', options)}`;
 };
 
 interface CalendarWidgetProps {
@@ -55,79 +33,71 @@ interface CalendarWidgetProps {
         stageName: string;
         startDate: string;
         endDate: string;
+        status?: string | null;
     }>;
 }
 
 export const CalendarWidget = ({ events }: CalendarWidgetProps) => {
     const navigate = useNavigate();
 
-    // 1. Transform data to include status
-    const allEvents: CalendarEvent[] = events.map(e => ({
-        ...e,
-        status: getStatus(new Date(e.startDate), new Date(e.endDate))
-    }));
-
-    // 2. Filter and Sort
     const now = new Date();
-
-    // Current: All events happening now
-    const currentEvents = allEvents.filter(e => {
+    const currentEvents = events.filter(e => {
         const start = new Date(e.startDate);
         const end = new Date(e.endDate);
         return now >= start && now <= end;
     }).sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
 
-    // Past: Finished events, sort by end date descending (most recent first), take top 3
-    const pastEvents = allEvents.filter(e => {
+    const pastEvents = events.filter(e => {
         const end = new Date(e.endDate);
         return now > end;
-    }).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime())
-        .slice(0, 3);
+    }).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime()).slice(0, 3);
 
-    // Future: Upcoming events, sort by start date ascending (nearest first), take top 3
-    const futureEvents = allEvents.filter(e => {
+    const futureEvents = events.filter(e => {
         const start = new Date(e.startDate);
         return now < start;
-    }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
-        .slice(0, 3);
+    }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).slice(0, 3);
 
-    // Combine: Past -> Current -> Future
-    // If total events < 10, we might show more, but per requirements: 
-    // "Current - all, Past - 2-3, Future - 2-3"
     const displayEvents = [...pastEvents.reverse(), ...currentEvents, ...futureEvents];
 
     return (
-        <Card className="h-full">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <CalendarIcon className="w-5 h-5 text-blue-400" />
+        <Card className="h-full bg-slate-900/50 border-slate-800">
+            <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-300">
+                    <CalendarIcon className="w-4 h-4 text-blue-400" />
                     Календарь событий
                 </CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-2">
                     {displayEvents.length === 0 ? (
-                        <p className="text-slate-500 text-center py-8">Событий пока нет.</p>
+                        <p className="text-slate-500 text-center py-8 text-xs">Событий пока нет.</p>
                     ) : (
-                        displayEvents.map(event => (
+                        displayEvents.map((event, idx) => (
                             <div
-                                key={event.id}
+                                key={idx}
                                 onClick={() => navigate(`/olympiad/${event.id}`)}
                                 className={cn(
-                                    "flex items-center justify-between p-3 rounded-lg border transition-all hover:bg-slate-900 cursor-pointer group",
-                                    getStatusColor(event.status)
+                                    "flex items-center justify-between p-2 rounded border border-slate-800/50 bg-slate-950/30 hover:bg-slate-900 cursor-pointer group transition-colors",
+                                    // Highlight current events slightly
+                                    new Date(event.startDate) <= now && new Date(event.endDate) >= now ? "border-indigo-500/30 bg-indigo-950/10" : ""
                                 )}
                             >
-                                <div className="flex flex-col">
-                                    <span className="font-medium group-hover:underline">{event.olympiadName}</span>
-                                    <span className="text-xs opacity-80">{event.subject} • {event.stageName}</span>
+                                <div className="flex flex-col min-w-0 flex-1 mr-2">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-medium text-sm text-slate-200 truncate group-hover:text-indigo-300 transition-colors">
+                                            {event.olympiadName}
+                                        </span>
+                                        {getStatusIcon(event.status)}
+                                    </div>
+                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono mt-1">
+                                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-medium">{event.subject}</span>
+                                        <span>•</span>
+                                        <span className="truncate font-medium text-slate-400">{event.stageName}</span>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col items-end gap-1">
-                                    <Badge variant="outline" className="text-[10px] bg-black/20 border-white/10">
-                                        {getStatusLabel(event.status)}
-                                    </Badge>
-                                    <span className="text-xs font-mono">
-                                        {new Date(event.startDate).toLocaleDateString('ru-RU')}
+                                <div className="flex flex-col items-end shrink-0">
+                                    <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
+                                        {formatDateRange(event.startDate, event.endDate)}
                                     </span>
                                 </div>
                             </div>

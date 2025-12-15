@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Check, X, Hourglass, AlertCircle, Minus, ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
@@ -12,6 +12,7 @@ interface CalendarEvent {
     stageName: string;
     startDate: string;
     endDate: string;
+    status?: string | null;
 }
 
 interface MonthCalendarProps {
@@ -47,16 +48,72 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
         "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
     ];
 
+    const getShortName = (name: string, maxLength: number = 3) => {
+        const parts = name.split(',');
+        const short = parts[0].trim();
+        if (maxLength <= 3) {
+            return short.length > maxLength ? short.slice(0, maxLength).toUpperCase() : short.toUpperCase();
+        }
+        return short.length > maxLength ? short.slice(0, maxLength) + '...' : short;
+    };
+
+    const getStatusIcon = (status?: string | null) => {
+        if (!status) return null;
+        const s = status.toLowerCase();
+        if (s.includes('winner') || s.includes('prize') || s.includes('passed') || s.includes('победитель') || s.includes('призер')) return <Check className="w-3 h-3" />;
+        if (s.includes('failed') || s.includes('не прошел')) return <X className="w-3 h-3" />;
+        if (s.includes('waiting') || s.includes('ожидание')) return <Hourglass className="w-3 h-3" />;
+        if (s.includes('participant') || s.includes('участник')) return <AlertCircle className="w-3 h-3" />;
+        if (s.includes('not') || s.includes('не')) return <Minus className="w-3 h-3" />;
+        return null;
+    };
+
+    const getStatusColor = (status?: string | null) => {
+        if (!status) return "bg-slate-800/50 text-slate-300 border-slate-700";
+        const s = status.toLowerCase();
+        if (s.includes('winner') || s.includes('prize') || s.includes('passed') || s.includes('победитель') || s.includes('призер')) return "bg-green-950/40 text-green-300 border-green-900/50";
+        if (s.includes('failed') || s.includes('не прошел')) return "bg-slate-800 text-slate-500 border-slate-700";
+        if (s.includes('waiting') || s.includes('ожидание')) return "bg-yellow-950/40 text-yellow-300 border-yellow-900/50";
+        if (s.includes('participant') || s.includes('участник')) return "bg-blue-950/40 text-blue-300 border-blue-900/50";
+        return "bg-slate-800/50 text-slate-300 border-slate-700";
+    };
+
     const getEventsForDay = (day: number) => {
         const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+        date.setHours(0, 0, 0, 0);
+
         return events.filter(e => {
+            // Filter out "Not Interested" / "Not Suitable"
+            if (e.status && (e.status.includes('NotInterested') || e.status.includes('NotSuitable') || e.status.includes('Не интересно') || e.status.includes('Не подходит'))) {
+                return false;
+            }
+
             const start = new Date(e.startDate);
+            start.setHours(0, 0, 0, 0);
             const end = new Date(e.endDate);
-            // Check if date is within event range (ignoring time)
-            const checkDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-            const startDate = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-            const endDate = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-            return checkDate >= startDate && checkDate <= endDate;
+            end.setHours(0, 0, 0, 0);
+
+            // Show only on Start Date and End Date
+            const isStart = date.getTime() === start.getTime();
+            const isEnd = date.getTime() === end.getTime();
+
+            return isStart || isEnd;
+        }).map(e => {
+            const start = new Date(e.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(e.endDate);
+            end.setHours(0, 0, 0, 0);
+
+            const isStart = date.getTime() === start.getTime();
+            const isEnd = date.getTime() === end.getTime();
+            const isSameDay = start.getTime() === end.getTime();
+
+            let label = "";
+            if (isSameDay) label = "";
+            else if (isStart) label = "(Начало)";
+            else if (isEnd) label = "(Конец)";
+
+            return { ...e, dayLabel: label };
         });
     };
 
@@ -101,14 +158,24 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
                                     {day}
                                 </span>
                                 <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar">
-                                    {dayEvents.map(event => (
+                                    {dayEvents.map((event, idx) => (
                                         <div
-                                            key={event.id}
+                                            key={`${event.id}-${idx}`}
                                             onClick={() => navigate(`/olympiad/${event.id}`)}
-                                            className="text-[10px] p-1 rounded bg-indigo-500/20 text-indigo-200 truncate cursor-pointer hover:bg-indigo-500/30"
-                                            title={`${event.olympiadName}: ${event.stageName}`}
+                                            className={cn(
+                                                "text-[10px] p-1 rounded border flex items-center justify-between gap-1 cursor-pointer hover:opacity-80",
+                                                getStatusColor(event.status)
+                                            )}
+                                            title={`${event.olympiadName}: ${event.stageName} (${event.subject})`}
                                         >
-                                            {event.olympiadName}
+                                            <div className="flex items-center gap-1 truncate">
+                                                {event.dayLabel === '(Начало)' && <ArrowUpRight className="w-3 h-3 text-green-400" />}
+                                                {event.dayLabel === '(Конец)' && <ArrowDownRight className="w-3 h-3 text-red-400" />}
+                                                <span className="font-bold">{getShortName(event.olympiadName, 15)}</span>
+                                                <span className="opacity-70">{getShortName(event.stageName, 3)}</span>
+                                                <span className="opacity-50">{getShortName(event.subject, 3)}</span>
+                                            </div>
+                                            {getStatusIcon(event.status)}
                                         </div>
                                     ))}
                                 </div>

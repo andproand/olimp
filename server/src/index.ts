@@ -5,6 +5,8 @@ import dashboardRoutes from './routes/dashboard.routes';
 import olympiadRoutes from './routes/olympiad.routes';
 import resultRoutes from './routes/result.routes';
 import uploadRoutes from './routes/upload.routes';
+import settingsRoutes from './routes/settings.routes';
+import dataRoutes from './routes/data.routes';
 import path from 'path';
 
 const app = express();
@@ -19,6 +21,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/olympiads', olympiadRoutes);
 app.use('/api/results', resultRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/data', dataRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

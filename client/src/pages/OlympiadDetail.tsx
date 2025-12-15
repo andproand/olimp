@@ -7,8 +7,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText, Clock, Building2, Plus, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Result {
     id: number;
@@ -22,6 +28,7 @@ interface Stage {
     id: number;
     name: string;
     type: string;
+    time: string | null;
     startDate: string | null;
     endDate: string | null;
     results: Result[];
@@ -32,14 +39,16 @@ interface Profile {
     subject: string;
     level: string | null;
     description: string | null;
+    priority: string | null;
+    academicYear: string;
     stages: Stage[];
 }
 
 interface Olympiad {
     id: number;
     name: string;
+    organizer: string | null;
     website: string | null;
-    priority: string;
     description: string | null;
     contacts: string | null;
     logoUrl: string | null;
@@ -51,6 +60,7 @@ const OlympiadDetail = () => {
     const navigate = useNavigate();
     const [olympiad, setOlympiad] = useState<Olympiad | null>(null);
     const [loading, setLoading] = useState(true);
+    const [selectedYear, setSelectedYear] = useState<string>('');
 
     const fetchOlympiad = () => {
         fetch(`/api/olympiads/${id}`)
@@ -60,6 +70,13 @@ const OlympiadDetail = () => {
             })
             .then(data => {
                 setOlympiad(data);
+                // Set default year to the most recent one or "2024/2025"
+                if (data.profiles && data.profiles.length > 0) {
+                    const years = Array.from(new Set(data.profiles.map((p: Profile) => p.academicYear))).sort().reverse();
+                    setSelectedYear(years[0] as string);
+                } else {
+                    setSelectedYear('2025/2026');
+                }
                 setLoading(false);
             })
             .catch(err => {
@@ -94,6 +111,9 @@ const OlympiadDetail = () => {
         );
     }
 
+    const years = Array.from(new Set(olympiad.profiles.map(p => p.academicYear))).sort().reverse();
+    const filteredProfiles = olympiad.profiles.filter(p => p.academicYear === selectedYear);
+
     return (
         <MainLayout>
             <div className="mb-6">
@@ -110,10 +130,15 @@ const OlympiadDetail = () => {
                         <div>
                             <div className="flex items-center gap-3 mb-2">
                                 <h2 className="text-3xl font-bold text-white">{olympiad.name}</h2>
-                                <Badge variant="outline" className="text-indigo-300 border-indigo-500/50">
-                                    {olympiad.priority} Priority
-                                </Badge>
                             </div>
+
+                            {olympiad.organizer && (
+                                <div className="flex items-center text-slate-400 mb-2">
+                                    <Building2 className="w-4 h-4 mr-1.5" />
+                                    <span className="font-medium">{olympiad.organizer}</span>
+                                </div>
+                            )}
+
                             <div className="space-y-1">
                                 {olympiad.website && (
                                     <a
@@ -135,51 +160,99 @@ const OlympiadDetail = () => {
                             )}
                         </div>
                     </div>
-                    <Button
-                        onClick={() => navigate(`/olympiad/${id}/edit`)}
-                        variant="outline"
-                        className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 shrink-0"
-                    >
-                        <Edit className="w-4 h-4 mr-2" />
-                        Редактировать
-                    </Button>
+                    <div className="flex flex-col gap-2 items-end">
+                        <Button
+                            onClick={() => navigate(`/olympiad/${id}/edit`)}
+                            variant="outline"
+                            className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 shrink-0"
+                        >
+                            <Edit className="w-4 h-4 mr-2" />
+                            Редактировать
+                        </Button>
+
+                        {years.length > 0 && (
+                            <div className="flex items-center gap-2 mt-2">
+                                <span className="text-sm text-slate-500">Учебный год:</span>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 h-8">
+                                            {selectedYear}
+                                            <ChevronRight className="w-4 h-4 ml-2 rotate-90" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
+                                        {years.map(year => (
+                                            <DropdownMenuItem
+                                                key={year}
+                                                onClick={() => setSelectedYear(year)}
+                                                className={selectedYear === year ? "bg-slate-800" : ""}
+                                            >
+                                                {year}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Main Content: Profiles & Stages */}
                 <div className="lg:col-span-2 space-y-6">
-                    {olympiad.profiles.map(profile => (
-                        <Card key={profile.id} className="bg-slate-900/50 border-slate-800">
-                            <CardHeader>
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="flex items-center gap-2 text-xl text-slate-200">
-                                        <Trophy className="w-5 h-5 text-yellow-500" />
-                                        {profile.subject}
-                                    </CardTitle>
-                                    {profile.level && profile.level !== '-' && (
-                                        <Badge variant="secondary" className="bg-slate-800 text-slate-300">
-                                            {profile.level} уровень
-                                        </Badge>
+                    {filteredProfiles.length > 0 ? (
+                        filteredProfiles.map(profile => (
+                            <Card key={profile.id} className="bg-slate-900/50 border-slate-800">
+                                <CardHeader>
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="flex items-center gap-2 text-xl text-slate-200">
+                                            <Trophy className="w-5 h-5 text-yellow-500" />
+                                            {profile.subject}
+                                        </CardTitle>
+                                        <div className="flex gap-2">
+                                            {profile.priority && (
+                                                <Badge variant="outline" className={cn("border-0 bg-opacity-20",
+                                                    profile.priority === 'High' ? 'bg-red-500 text-red-300' :
+                                                        profile.priority === 'Medium' ? 'bg-yellow-500 text-yellow-300' :
+                                                            'bg-blue-500 text-blue-300'
+                                                )}>
+                                                    {profile.priority === 'High' ? 'Высокая' :
+                                                        profile.priority === 'Medium' ? 'Средняя' : 'Низкая'}
+                                                </Badge>
+                                            )}
+                                            {profile.level && profile.level !== '-' && (
+                                                <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+                                                    {profile.level} уровень
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                    {profile.description && (
+                                        <p className="text-sm text-slate-500 mt-1">{profile.description}</p>
                                     )}
-                                </div>
-                                {profile.description && (
-                                    <p className="text-sm text-slate-500 mt-1">{profile.description}</p>
-                                )}
-                            </CardHeader>
-                            <CardContent>
-                                <div className="space-y-4">
-                                    {profile.stages.length === 0 ? (
-                                        <p className="text-slate-500 text-sm italic">Этапы еще не добавлены.</p>
-                                    ) : (
-                                        profile.stages.map(stage => (
-                                            <StageItem key={stage.id} stage={stage} onUpdate={fetchOlympiad} />
-                                        ))
-                                    )}
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-4">
+                                        {profile.stages.length === 0 ? (
+                                            <p className="text-slate-500 text-sm italic">Этапы еще не добавлены.</p>
+                                        ) : (
+                                            profile.stages.map(stage => (
+                                                <StageItem key={stage.id} stage={stage} onUpdate={fetchOlympiad} />
+                                            ))
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))
+                    ) : (
+                        <div className="text-center py-12 border border-dashed border-slate-800 rounded-lg">
+                            <p className="text-slate-500">Нет профилей для выбранного учебного года.</p>
+                            <Button variant="link" className="text-indigo-400" onClick={() => navigate(`/olympiad/${id}/edit`)}>
+                                Добавить профиль
+                            </Button>
+                        </div>
+                    )}
                 </div>
 
                 {/* Sidebar: Notes / Stats (Placeholder) */}
@@ -240,8 +313,14 @@ const StageItem = ({ stage, onUpdate }: { stage: Stage, onUpdate: () => void }) 
             <div className="flex justify-between items-start mb-3">
                 <div>
                     <p className="font-medium text-slate-300 text-lg">{stage.name}</p>
-                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
                         <span className="px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">{stage.type}</span>
+                        {stage.time && (
+                            <span className="flex items-center gap-1 text-slate-400">
+                                <Clock className="w-3 h-3" />
+                                {stage.time}
+                            </span>
+                        )}
                         {stage.startDate && (
                             <span className="flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
@@ -289,9 +368,11 @@ const StageItem = ({ stage, onUpdate }: { stage: Stage, onUpdate: () => void }) 
                         >
                             <option value="Participant">Участник</option>
                             <option value="Winner">Победитель</option>
-                            <option value="Prize-winner">Призер</option>
-                            <option value="Waiting">Ожидание</option>
+                            <option value="PrizeWinner">Призер</option>
+                            <option value="Waiting">Ожидание результатов</option>
                             <option value="Failed">Не прошел</option>
+                            <option value="NotInterested">Не интересно</option>
+                            <option value="NotSuitable">Не подходит</option>
                         </select>
                     </div>
                     <div className="space-y-1">
@@ -353,15 +434,15 @@ const PlusCircleIcon = ({ className, text }: { className?: string, text?: string
     </div>
 );
 
-import { Plus } from 'lucide-react';
-
 const getStatusColor = (status: string) => {
     switch (status) {
         case 'Winner': return 'bg-yellow-500 text-yellow-300';
-        case 'Prize-winner': return 'bg-orange-500 text-orange-300';
+        case 'PrizeWinner': return 'bg-orange-500 text-orange-300';
         case 'Participant': return 'bg-blue-500 text-blue-300';
         case 'Failed': return 'bg-red-500 text-red-300';
         case 'Waiting': return 'bg-slate-500 text-slate-300';
+        case 'NotInterested': return 'bg-gray-500 text-gray-300';
+        case 'NotSuitable': return 'bg-gray-500 text-gray-300';
         default: return 'bg-slate-500 text-slate-300';
     }
 };
@@ -369,10 +450,12 @@ const getStatusColor = (status: string) => {
 const getStatusLabel = (status: string) => {
     switch (status) {
         case 'Winner': return 'Победитель';
-        case 'Prize-winner': return 'Призер';
+        case 'PrizeWinner': return 'Призер';
         case 'Participant': return 'Участник';
         case 'Failed': return 'Не прошел';
         case 'Waiting': return 'Ожидание';
+        case 'NotInterested': return 'Не интересно';
+        case 'NotSuitable': return 'Не подходит';
         default: return status;
     }
 };

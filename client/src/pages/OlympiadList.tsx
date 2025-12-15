@@ -5,35 +5,53 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Plus, Filter, User, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Search, Plus, CheckCircle2, XCircle, Hourglass, AlertCircle, MinusCircle, ArrowUpDown } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { cn } from '@/lib/utils';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+interface Result {
+    status: string;
+}
 
 interface Stage {
     name: string;
     startDate: string | null;
     endDate: string | null;
+    results: Result[];
 }
 
 interface Profile {
     subject: string;
     level: number | null;
+    priority?: string;
+    academicYear?: string;
     stages: Stage[];
 }
 
 interface Olympiad {
     id: number;
     name: string;
+    organizer: string | null;
     priority: string;
     contacts: string | null;
     profiles: Profile[];
+    updatedAt: string;
 }
 
 const OlympiadList = () => {
     const [olympiads, setOlympiads] = useState<Olympiad[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortOrder, setSortOrder] = useState<'date' | 'name' | 'priority'>('date');
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const filterParam = searchParams.get('filter');
 
     useEffect(() => {
         fetch('/api/olympiads')
@@ -54,10 +72,46 @@ const OlympiadList = () => {
             });
     }, []);
 
-    const filteredOlympiads = olympiads.filter(o =>
-        o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        o.profiles.some(p => p.subject.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const getPriorityWeight = (priority: string) => {
+        switch (priority.toLowerCase()) {
+            case 'high': return 3;
+            case 'medium': return 2;
+            case 'low': return 1;
+            default: return 0;
+        }
+    };
+
+    const filteredOlympiads = olympiads.filter(o => {
+        const matchesSearch = o.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            o.profiles.some(p => p.subject.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        if (filterParam === 'current') {
+            // Check if any stage is currently active
+            const now = new Date();
+            const hasActiveStage = o.profiles.some(p => p.stages.some(s =>
+                s.startDate && s.endDate && new Date(s.startDate) <= now && new Date(s.endDate) >= now
+            ));
+            return matchesSearch && hasActiveStage;
+        }
+
+        if (filterParam === 'completed') {
+            // Check if all stages are past
+            const now = new Date();
+            const allStagesPast = o.profiles.every(p => p.stages.every(s =>
+                s.endDate && new Date(s.endDate) < now
+            ));
+            // Ensure it has stages to be considered "completed" (optional logic)
+            const hasStages = o.profiles.some(p => p.stages.length > 0);
+            return matchesSearch && allStagesPast && hasStages;
+        }
+
+        return matchesSearch;
+    }).sort((a, b) => {
+        if (sortOrder === 'name') return a.name.localeCompare(b.name);
+        if (sortOrder === 'priority') return getPriorityWeight(b.priority) - getPriorityWeight(a.priority);
+        // Date sort: by updatedAt (most recent first)
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
 
     const getPriorityColor = (priority: string) => {
         switch (priority.toLowerCase()) {
@@ -77,18 +131,17 @@ const OlympiadList = () => {
         }
     };
 
-    const getStageStatus = (stage: Stage) => {
-        if (!stage.startDate) return 'future';
-        const now = new Date();
-        const start = new Date(stage.startDate);
-        // If no end date, assume it ends at the end of the start day
-        const end = stage.endDate ? new Date(stage.endDate) : new Date(start.getTime() + 86400000);
 
-        // Reset hours to compare dates only if needed, but for now strict comparison
-        if (now > end) return 'completed';
-        if (now >= start && now <= end) return 'current';
-        // Also check if we are "approaching" the start date (e.g. within 3 days) could be useful, but for now:
-        return 'future';
+
+    const getResultIcon = (status?: string) => {
+        if (!status) return null;
+        const s = status.toLowerCase();
+        if (s.includes('winner') || s.includes('prize') || s.includes('passed') || s.includes('победитель') || s.includes('призер')) return <CheckCircle2 className="w-3 h-3 text-green-500" />;
+        if (s.includes('failed') || s.includes('не прошел')) return <XCircle className="w-3 h-3 text-red-500" />;
+        if (s.includes('waiting') || s.includes('ожидание')) return <Hourglass className="w-3 h-3 text-yellow-500" />;
+        if (s.includes('participant') || s.includes('участник')) return <AlertCircle className="w-3 h-3 text-blue-500" />;
+        if (s.includes('not') || s.includes('не')) return <MinusCircle className="w-3 h-3 text-slate-500" />;
+        return null;
     };
 
     return (
@@ -114,10 +167,19 @@ const OlympiadList = () => {
                         onChange={(e) => setSearchTerm(e.target.value)}
                     />
                 </div>
-                <Button variant="outline" className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800">
-                    <Filter className="w-4 h-4 mr-2" />
-                    Фильтры
-                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="outline" className="border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800">
+                            <ArrowUpDown className="w-4 h-4 mr-2" />
+                            Сортировка: {sortOrder === 'date' ? 'Дата' : sortOrder === 'name' ? 'Имя' : 'Приоритет'}
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800 text-slate-200">
+                        <DropdownMenuItem onClick={() => setSortOrder('date')}>По дате обновления</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortOrder('name')}>По имени</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setSortOrder('priority')}>По приоритету</DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
             {loading ? (
@@ -133,78 +195,59 @@ const OlympiadList = () => {
                             onClick={() => navigate(`/olympiad/${olympiad.id}`)}
                         >
                             <CardContent className="p-6">
-                                <div className="flex flex-col md:flex-row gap-6">
-                                    {/* Left: Info & Organizer */}
-                                    <div className="flex-1 min-w-[200px]">
-                                        <div className="flex items-start justify-between mb-2">
-                                            <h3 className="text-xl font-bold text-slate-200 group-hover:text-indigo-300 transition-colors">
-                                                {olympiad.name}
-                                            </h3>
-                                            <Badge variant="outline" className={`ml-2 ${getPriorityColor(olympiad.priority)}`}>
-                                                {getPriorityLabel(olympiad.priority)}
-                                            </Badge>
-                                        </div>
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-2xl font-bold text-white group-hover:text-indigo-400 transition-colors">{olympiad.name}</h3>
+                                </div>
+                                {olympiad.organizer && (
+                                    <p className="text-slate-400 text-sm mb-3">{olympiad.organizer}</p>
+                                )}
 
-                                        {olympiad.contacts && (
-                                            <div className="flex items-center text-sm text-slate-500 mb-3">
-                                                <User className="w-3 h-3 mr-1.5" />
-                                                <span className="font-normal">{olympiad.contacts}</span>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Right: Profiles & Stages */}
-                                    <div className="flex-[2] border-l border-slate-800/50 pl-0 md:pl-6 pt-4 md:pt-0 space-y-6">
-                                        {olympiad.profiles.map((profile, pIdx) => (
-                                            <div key={pIdx} className="space-y-2">
+                                <div className="space-y-6">
+                                    {olympiad.profiles.map((profile, pIdx) => (
+                                        <div key={pIdx} className="relative flex flex-col md:flex-row gap-4 items-start border-b border-slate-800/50 last:border-0 pb-4 last:pb-0">
+                                            {/* Profile Header (Left) */}
+                                            <div className="flex flex-wrap md:flex-col items-center md:items-start gap-3 md:w-1/4 shrink-0">
                                                 <div className="flex items-center gap-2">
-                                                    <Badge variant="secondary" className="bg-slate-800 text-slate-300 hover:bg-slate-700">
+                                                    <span className="text-lg font-bold text-slate-200">
                                                         {profile.subject}
-                                                    </Badge>
+                                                    </span>
                                                     {profile.level && (
-                                                        <span className="text-xs text-slate-500 font-mono border border-slate-800 px-1.5 py-0.5 rounded">
+                                                        <span className="text-sm text-slate-500 bg-slate-800 px-2 py-0.5 rounded">
                                                             {profile.level} ур.
                                                         </span>
                                                     )}
                                                 </div>
-
-                                                <div className="flex items-center gap-2 overflow-x-auto pb-2 custom-scrollbar">
-                                                    {profile.stages.map((stage, sIdx) => {
-                                                        const status = getStageStatus(stage);
-                                                        return (
-                                                            <div key={sIdx} className="flex items-center shrink-0">
-                                                                <div className={cn(
-                                                                    "flex flex-col items-center p-2 rounded border min-w-[100px] text-center transition-all",
-                                                                    status === 'current' ? "bg-indigo-950/40 border-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.2)]" :
-                                                                        status === 'completed' ? "bg-slate-900 border-slate-800 opacity-50" :
-                                                                            "bg-slate-950 border-slate-800"
-                                                                )}>
-                                                                    <span className={cn(
-                                                                        "text-xs font-medium mb-1",
-                                                                        status === 'current' ? "text-indigo-300" : "text-slate-400"
-                                                                    )}>
-                                                                        {stage.name}
-                                                                    </span>
-                                                                    <span className="text-[10px] text-slate-500 font-mono">
-                                                                        {stage.startDate ? new Date(stage.startDate).toLocaleDateString('ru-RU') : 'TBD'}
-                                                                    </span>
-                                                                </div>
-                                                                {sIdx < profile.stages.length - 1 && (
-                                                                    <ChevronRight className="w-4 h-4 text-slate-700 mx-1" />
-                                                                )}
-                                                            </div>
-                                                        );
-                                                    })}
-                                                    {(!profile.stages || profile.stages.length === 0) && (
-                                                        <span className="text-sm text-slate-600 italic">Этапы не добавлены</span>
-                                                    )}
-                                                </div>
+                                                {profile.priority && (
+                                                    <Badge className={cn("text-xs px-2 py-0.5 rounded-full", getPriorityColor(profile.priority))}>
+                                                        {getPriorityLabel(profile.priority)}
+                                                    </Badge>
+                                                )}
                                             </div>
-                                        ))}
-                                        {olympiad.profiles.length === 0 && (
-                                            <div className="text-sm text-slate-600 italic">Профили не добавлены</div>
-                                        )}
-                                    </div>
+
+                                            {/* Stages Grid (Right) */}
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 flex-1 w-full">
+                                                {profile.stages.map((stage, sIdx) => {
+                                                    const hasResults = stage.results && stage.results.length > 0;
+                                                    const firstResultStatus = hasResults ? stage.results[0].status : undefined;
+
+                                                    return (
+                                                        <div key={sIdx} className="flex flex-col p-3 rounded-lg bg-slate-950/50 border border-slate-800/50 hover:border-indigo-500/30 transition-colors">
+                                                            <div className="flex items-center justify-between mb-1">
+                                                                <span className="text-base font-medium text-slate-300 truncate pr-2">
+                                                                    {stage.name}
+                                                                </span>
+                                                                {getResultIcon(firstResultStatus)}
+                                                            </div>
+                                                            <div className="text-sm text-slate-500">
+                                                                {stage.startDate ? new Date(stage.startDate).toLocaleDateString() : '...'}
+                                                                {stage.endDate && stage.startDate !== stage.endDate && ` - ${new Date(stage.endDate).toLocaleDateString()}`}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </CardContent>
                         </Card>

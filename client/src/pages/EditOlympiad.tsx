@@ -72,12 +72,30 @@ const EditOlympiad = () => {
 
     return (
         <MainLayout>
-            <div className="mb-6">
-                <Button variant="ghost" onClick={() => navigate(`/olympiad/${id}`)} className="mb-4 pl-0 hover:pl-2 transition-all text-slate-400 hover:text-white">
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Назад к олимпиаде
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <Button variant="ghost" onClick={() => navigate(`/olympiad/${id}`)} className="mb-4 pl-0 hover:pl-2 transition-all text-slate-400 hover:text-white">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Назад к олимпиаде
+                    </Button>
+                    <h2 className="text-3xl font-bold text-white">Редактирование олимпиады</h2>
+                </div>
+                <Button
+                    variant="destructive"
+                    onClick={async () => {
+                        if (confirm('Вы уверены, что хотите удалить эту олимпиаду? Это действие нельзя отменить.')) {
+                            try {
+                                const res = await fetch(`/api/olympiads/${id}`, { method: 'DELETE' });
+                                if (res.ok) navigate('/olympiads');
+                                else console.error('Failed to delete');
+                            } catch (e) {
+                                console.error(e);
+                            }
+                        }
+                    }}
+                >
+                    Удалить олимпиаду
                 </Button>
-                <h2 className="text-3xl font-bold text-white">Редактирование олимпиады</h2>
             </div>
 
             <OlympiadForm initialData={initialData} onSubmit={handleSubmit} />

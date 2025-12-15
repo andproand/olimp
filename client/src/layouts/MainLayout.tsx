@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, Trophy, Settings, User } from 'lucide-react';
+import { LayoutDashboard, Trophy, Settings, User, Award } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MainLayoutProps {
@@ -19,9 +19,12 @@ const MainLayout = ({ children }: MainLayoutProps) => {
             {/* Sidebar */}
             <aside className="w-64 border-r border-slate-800 bg-slate-950 hidden md:flex flex-col">
                 <div className="p-6">
-                    <h1 className="text-2xl font-bold text-blue-500 flex items-center gap-2">
-                        <Trophy className="w-8 h-8" />
-                        OlympTracker
+                    <h1
+                        className="text-2xl font-bold text-blue-500 flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => navigate('/')}
+                    >
+                        <Award className="w-8 h-8" />
+                        Мои олимпиады
                     </h1>
                 </div>
 

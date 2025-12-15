@@ -13,6 +13,8 @@ interface DashboardData {
     stats: {
         totalOlympiads: number;
         totalWins: number;
+        currentOlympiads: number;
+        completedOlympiads: number;
     };
     alerts: Array<{
         id: number;
@@ -21,6 +23,7 @@ interface DashboardData {
         subject: string;
         stageName: string;
         date: string;
+        isStart?: boolean;
     }>;
     upcoming: Array<{
         id: number;
@@ -29,6 +32,7 @@ interface DashboardData {
         stageName: string;
         startDate: string;
         endDate: string;
+        status?: string | null;
     }>;
 }
 
@@ -36,6 +40,8 @@ const Dashboard = () => {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
     const navigate = useNavigate();
+
+    const [username, setUsername] = useState('Чемпион');
 
     useEffect(() => {
         fetch('/api/dashboard')
@@ -48,6 +54,13 @@ const Dashboard = () => {
                 console.error(err);
                 setLoading(false);
             });
+
+        fetch('/api/settings/username')
+            .then(res => res.json())
+            .then(data => {
+                if (data.value) setUsername(data.value);
+            })
+            .catch(console.error);
     }, []);
 
     if (loading) {
@@ -66,7 +79,7 @@ const Dashboard = () => {
     return (
         <MainLayout>
             <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white">Добро пожаловать, Чемпион! 👋</h2>
+                <h2 className="text-3xl font-bold text-white">Добро пожаловать, {username}! 👋</h2>
                 <p className="text-slate-400 mt-2">Давай посмотрим на твои успехи и планы.</p>
             </div>
 
@@ -83,13 +96,25 @@ const Dashboard = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="flex justify-between items-end mb-2">
-                                <span className="text-3xl font-bold text-white">{data?.stats.totalOlympiads}</span>
-                                <span className="text-xs text-slate-500 mb-1">Олимпиад</span>
-                            </div>
                             <div className="flex justify-between items-end">
-                                <span className="text-3xl font-bold text-green-400">{data?.stats.totalWins}</span>
-                                <span className="text-xs text-slate-500 mb-1">Побед</span>
+                                <div className="flex flex-col cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads')}>
+                                    <span className="text-3xl font-bold text-white">{data?.stats.totalOlympiads}</span>
+                                    <span className="text-xs text-slate-500">Всего</span>
+                                </div>
+                                <div className="flex gap-6">
+                                    <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?filter=current')}>
+                                        <span className="text-3xl font-bold text-blue-400">{data?.stats.currentOlympiads}</span>
+                                        <span className="text-xs text-slate-500">Текущие</span>
+                                    </div>
+                                    <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?filter=completed')}>
+                                        <span className="text-3xl font-bold text-slate-400">{data?.stats.completedOlympiads}</span>
+                                        <span className="text-xs text-slate-500">Завершенные</span>
+                                    </div>
+                                    <div className="flex flex-col items-end">
+                                        <span className="text-3xl font-bold text-green-400">{data?.stats.totalWins}</span>
+                                        <span className="text-xs text-slate-500">Побед</span>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -108,21 +133,22 @@ const Dashboard = () => {
                                     <p className="text-slate-500 text-sm">Все отлично!</p>
                                 </div>
                             ) : (
-                                data?.alerts.slice(0, 2).map(alert => (
+                                data?.alerts.slice(0, 2).map((alert, idx) => (
                                     <div
-                                        key={alert.id}
+                                        key={idx}
                                         onClick={() => navigate(`/olympiad/${alert.id}`)}
                                         className="p-2 bg-red-950/20 border border-red-900/30 rounded text-xs cursor-pointer hover:bg-red-950/40 transition-colors"
                                     >
                                         <div className="flex justify-between mb-1">
                                             <Badge variant="outline" className="text-[10px] px-1 py-0 h-4 border-red-800 text-red-300">
-                                                {alert.type === 'Registration' ? 'Рег.' : 'Событие'}
+                                                {alert.type === 'Registration' ? 'Регистрация' : (alert.isStart ? 'Старт этапа' : 'Конец этапа')}
                                             </Badge>
                                             <span className="text-red-400 font-mono">
                                                 {new Date(alert.date).toLocaleDateString('ru-RU')}
                                             </span>
                                         </div>
                                         <p className="font-medium text-red-200 truncate">{alert.olympiadName}</p>
+                                        <p className="text-red-300/70 truncate">{alert.subject} • {alert.stageName}</p>
                                     </div>
                                 ))
                             )}
