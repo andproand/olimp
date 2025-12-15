@@ -10,6 +10,8 @@ interface ImportRow {
     'Olympiad Name': string;
     'Organizer'?: string;
     'Website'?: string;
+    'Login'?: string;
+    'Password'?: string;
     'Description'?: string;
     'Contacts'?: string;
     'Profile Subject'?: string;
@@ -54,21 +56,22 @@ export const importOlympiads = async (req: Request, res: Response) => {
                         name: olympiadName,
                         organizer: row['Organizer'] || null,
                         website: row['Website'] || null,
+                        login: row['Login'] || null,
+                        password: row['Password'] || null,
                         description: row['Description'] || null,
                         contacts: row['Contacts'] || null,
-                        // Priority is now on Profile, but we keep the field for compatibility if needed, or ignore
                         priority: 'Medium'
                     }
                 });
                 createdCount++;
             } else {
-                // Update basic info if provided and empty in DB? Or overwrite? 
-                // Let's overwrite if provided in Excel to allow updates
                 await prisma.olympiad.update({
                     where: { id: olympiad.id },
                     data: {
                         organizer: row['Organizer'] || olympiad.organizer,
                         website: row['Website'] || olympiad.website,
+                        login: row['Login'] || olympiad.login,
+                        password: row['Password'] || olympiad.password,
                         description: row['Description'] || olympiad.description,
                         contacts: row['Contacts'] || olympiad.contacts
                     }
@@ -151,7 +154,6 @@ export const importOlympiads = async (req: Request, res: Response) => {
                     }
 
                     // 4. Handle Result
-                    // Only if status or scores are present
                     if (row['Status'] || row['User Score'] || row['Passing Score']) {
                         const resultData = {
                             userScore: row['User Score'] ? parseFloat(String(row['User Score'])) : null,

@@ -13,8 +13,8 @@ model Olympiad {
   organizer     String?
   ministryLevel Int?      // 1, 2, 3 or null
   website       String?
-  login         String?
-  password      String?
+  login         String?   // New
+  password      String?   // New
   priority      String    @default("Medium") // Deprecated, moving to Profile. Kept for migration safety if needed, or remove. Let's remove and migrate data if possible, or keep for now. 
   // Actually, user wants it on Profile. Let's remove from here in next step or keep as default? 
   // Better to remove and rely on Profile priority.

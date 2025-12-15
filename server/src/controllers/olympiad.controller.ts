@@ -64,13 +64,16 @@ export const createOlympiad = async (req: Request, res: Response) => {
                 website,
                 description,
                 contacts,
+                login: req.body.login,
+                password: req.body.password,
+                priority: 'Medium',
                 profiles: {
                     create: (profiles || []).map((p: any) => ({
                         subject: p.subject,
                         level: (p.level && p.level !== '-' && !isNaN(Number(p.level))) ? Number(p.level) : null,
                         description: p.description || null,
                         priority: p.priority || 'Medium',
-                        academicYear: p.academicYear || '2024/2025',
+                        academicYear: p.academicYear || '2025/2026',
                         stages: {
                             create: (p.stages || []).map((s: any) => ({
                                 name: s.name,
@@ -105,7 +108,7 @@ export const createOlympiad = async (req: Request, res: Response) => {
 
 export const updateOlympiad = async (req: Request, res: Response) => {
     const { id } = req.params;
-    const { name, organizer, website, description, contacts, profiles } = req.body;
+    const { name, organizer, website, description, contacts, profiles, login, password } = req.body;
     try {
         // 1. Update basic info
         const olympiad = await prisma.olympiad.update({
@@ -115,7 +118,9 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                 organizer,
                 website,
                 description,
-                contacts
+                contacts,
+                login,
+                password
             }
         });
 
@@ -175,7 +180,7 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                             level: (p.level && p.level !== '-' && !isNaN(Number(p.level))) ? Number(p.level) : null,
                             description: p.description || null,
                             priority: p.priority || 'Medium',
-                            academicYear: p.academicYear || '2024/2025',
+                            academicYear: p.academicYear || '2025/2026',
                             olympiadId: Number(id),
                             stages: {
                                 create: (p.stages || []).map((s: any) => ({

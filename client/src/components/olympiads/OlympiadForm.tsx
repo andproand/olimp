@@ -142,25 +142,24 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
             console.log('FORM SUBMISSION DATA:', JSON.stringify(data, null, 2));
             onSubmit(data);
         })} className="space-y-6">
-            {/* General Info */}
             <Card className="bg-slate-900/50 border-slate-800">
                 <CardHeader>
-                    <CardTitle className="text-lg font-medium text-slate-200">Основная информация</CardTitle>
+                    <CardTitle className="text-xl text-slate-200">Основная информация</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name" className="text-slate-400">Название</Label>
-                            <Input id="name" {...register("name")} placeholder="Например: ВсОШ" className="bg-slate-950 border-slate-800 text-white" />
+                        <div className="space-y-2 md:col-span-2">
+                            <Label htmlFor="name" className="text-slate-400">Название <span className="text-red-500">*</span></Label>
+                            <Input id="name" {...register("name")} placeholder="Название олимпиады" className="bg-slate-950 border-slate-800 text-white" />
                             {errors.name && <p className="text-red-400 text-xs">{errors.name.message}</p>}
                         </div>
                         <div className="space-y-2">
                             <Label htmlFor="organizer" className="text-slate-400">Организатор</Label>
-                            <Input id="organizer" {...register("organizer")} placeholder="Например: МГУ" className="bg-slate-950 border-slate-800 text-white" />
+                            <Input id="organizer" {...register("organizer")} placeholder="ВУЗ или организация" className="bg-slate-950 border-slate-800 text-white" />
                         </div>
-                        <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="website" className="text-slate-400">Веб-сайт</Label>
-                            <Input id="website" {...register("website")} placeholder="https://..." className="bg-slate-950 border-slate-800 text-white" />
+                        <div className="space-y-2">
+                            <Label htmlFor="website" className="text-slate-400">Сайт</Label>
+                            <Input id="website" {...register("website")} placeholder="https://olymp.ru" className="bg-slate-950 border-slate-800 text-white" />
                             {errors.website && <p className="text-red-400 text-xs">{errors.website.message}</p>}
                         </div>
                         <div className="space-y-2 md:col-span-2">

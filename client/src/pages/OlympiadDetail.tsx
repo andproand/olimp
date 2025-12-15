@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText, Clock, Building2, Plus, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText, Clock, Building2, Plus, ChevronRight, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     DropdownMenu,
@@ -15,6 +15,23 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+
+const PasswordDisplay = ({ password }: { password: string }) => {
+    const [show, setShow] = useState(false);
+    return (
+        <div className="flex items-center gap-2 text-sm text-slate-300">
+            <span className="text-slate-500 text-xs uppercase w-12">Пароль:</span>
+            <div className="flex items-center gap-2">
+                <span className="font-mono select-all">
+                    {show ? password : '••••••••'}
+                </span>
+                <button onClick={() => setShow(!show)} className="text-slate-500 hover:text-indigo-400 focus:outline-none">
+                    {show ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                </button>
+            </div>
+        </div>
+    );
+};
 
 interface Result {
     id: number;
@@ -51,6 +68,8 @@ interface Olympiad {
     website: string | null;
     description: string | null;
     contacts: string | null;
+    login: string | null;
+    password: string | null;
     logoUrl: string | null;
     profiles: Profile[];
 }
@@ -153,6 +172,19 @@ const OlympiadDetail = () => {
                                 )}
                                 {olympiad.contacts && (
                                     <p className="text-sm text-slate-500">{olympiad.contacts}</p>
+                                )}
+                                {(olympiad.login || olympiad.password) && (
+                                    <div className="mt-2 p-2 bg-slate-900/50 rounded border border-slate-800 flex flex-col gap-1">
+                                        {olympiad.login && (
+                                            <div className="flex items-center gap-2 text-sm text-slate-300">
+                                                <span className="text-slate-500 text-xs uppercase w-12">Логин:</span>
+                                                <span className="font-mono select-all">{olympiad.login}</span>
+                                            </div>
+                                        )}
+                                        {olympiad.password && (
+                                            <PasswordDisplay password={olympiad.password} />
+                                        )}
+                                    </div>
                                 )}
                             </div>
                             {olympiad.description && (

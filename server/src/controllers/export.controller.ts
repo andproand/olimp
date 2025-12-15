@@ -73,6 +73,8 @@ export const exportOlympiads = async (req: Request, res: Response) => {
                                 'Olympiad Name': olympiad.name,
                                 'Organizer': olympiad.organizer || '',
                                 'Website': olympiad.website || '',
+                                'Login': olympiad.login || '',
+                                'Password': olympiad.password || '',
                                 'Description': olympiad.description || '',
                                 'Contacts': olympiad.contacts || '',
                                 'Academic Year': profile.academicYear,
@@ -102,6 +104,8 @@ export const exportOlympiads = async (req: Request, res: Response) => {
             { wch: 20 }, // Name
             { wch: 15 }, // Organizer
             { wch: 20 }, // Website
+            { wch: 15 }, // Login
+            { wch: 15 }, // Password
             { wch: 20 }, // Desc
             { wch: 15 }, // Contacts
             { wch: 12 }, // Year
