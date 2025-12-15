@@ -10,7 +10,11 @@ export const exportOlympiads = async (req: Request, res: Response) => {
             include: {
                 profiles: {
                     include: {
-                        stages: true
+                        stages: {
+                            include: {
+                                results: true
+                            }
+                        }
                     }
                 }
             }
