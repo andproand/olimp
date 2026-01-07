@@ -1,109 +1,214 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar as CalendarIcon, CheckCircle2, XCircle, Hourglass, AlertCircle, MinusCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
 
-const getStatusIcon = (status?: string | null) => {
-    if (!status) return null;
-    const s = status.toLowerCase();
-    if (s.includes('winner') || s.includes('prize') || s.includes('passed') || s.includes('победитель') || s.includes('призер')) return <CheckCircle2 className="w-4 h-4 text-green-500" />;
-    if (s.includes('failed') || s.includes('не прошел')) return <XCircle className="w-4 h-4 text-red-500" />;
-    if (s.includes('waiting') || s.includes('ожидание')) return <Hourglass className="w-4 h-4 text-yellow-500" />;
-    if (s.includes('participant') || s.includes('участник')) return <AlertCircle className="w-4 h-4 text-blue-500" />;
-    if (s.includes('not') || s.includes('не')) return <MinusCircle className="w-4 h-4 text-slate-500" />;
-    return null;
-};
-
-const formatDateRange = (startStr: string, endStr: string) => {
-    const start = new Date(startStr);
-    const end = new Date(endStr);
-    const options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'numeric' };
-
-    if (start.getTime() === end.getTime()) {
-        return start.toLocaleDateString('ru-RU', options);
-    }
-    return `${start.toLocaleDateString('ru-RU', options)} - ${end.toLocaleDateString('ru-RU', options)}`;
-};
-
-interface CalendarWidgetProps {
-    events: Array<{
-        id: number;
-        olympiadName: string;
-        subject: string;
-        stageName: string;
-        startDate: string;
-        endDate: string;
-        status?: string | null;
-    }>;
+interface Event {
+    id: number;
+    olympiadName: string;
+    stageName: string;
+    startDate: string;
+    endDate: string;
+    subject?: string;
+    status?: string;
 }
 
-export const CalendarWidget = ({ events }: CalendarWidgetProps) => {
+export const CalendarWidget = ({ events }: { events: Event[] }) => {
     const navigate = useNavigate();
+    const [isRecentCollapsed, setIsRecentCollapsed] = useState(true);
 
     const now = new Date();
-    const currentEvents = events.filter(e => {
-        const start = new Date(e.startDate);
-        const end = new Date(e.endDate);
-        return now >= start && now <= end;
-    }).sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+    const fiveDaysFromNow = new Date();
+    fiveDaysFromNow.setDate(now.getDate() + 5);
+    fiveDaysFromNow.setHours(23, 59, 59, 999);
 
-    const pastEvents = events.filter(e => {
-        const end = new Date(e.endDate);
-        return now > end;
-    }).sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime()).slice(0, 3);
+    const groupedEvents = {
+        recent: [] as typeof events,
+        today: [] as typeof events, // Ends in <= 5 days
+        soon: [] as typeof events,  // Starts in <= 5 days
+        future: [] as typeof events
+    };
 
-    const futureEvents = events.filter(e => {
-        const start = new Date(e.startDate);
-        return now < start;
-    }).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime()).slice(0, 3);
+    events.forEach(event => {
+        const start = new Date(event.startDate);
+        const end = new Date(event.endDate);
+        start.setHours(0, 0, 0, 0);
+        end.setHours(23, 59, 59, 999);
 
-    const displayEvents = [...pastEvents.reverse(), ...currentEvents, ...futureEvents];
+        const status = event.status?.toLowerCase() || '';
+        const isCompleted = status.includes('winner') || status.includes('prize') || status.includes('participant') || status.includes('победитель') || status.includes('призер') || status.includes('участник') || status.includes('выполнено') || status.includes('completed');
 
-    return (
-        <Card className="h-full bg-slate-900/50 border-slate-800">
-            <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-300">
-                    <CalendarIcon className="w-4 h-4 text-blue-400" />
-                    Календарь событий
-                </CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
-                    {displayEvents.length === 0 ? (
-                        <p className="text-slate-500 text-center py-8 text-xs">Событий пока нет.</p>
-                    ) : (
-                        displayEvents.map((event, idx) => (
-                            <div
-                                key={idx}
-                                onClick={() => navigate(`/olympiad/${event.id}`)}
-                                className={cn(
-                                    "flex items-center justify-between p-2 rounded border border-slate-800/50 bg-slate-950/30 hover:bg-slate-900 cursor-pointer group transition-colors",
-                                    // Highlight current events slightly
-                                    new Date(event.startDate) <= now && new Date(event.endDate) >= now ? "border-indigo-500/30 bg-indigo-950/10" : ""
-                                )}
-                            >
-                                <div className="flex flex-col min-w-0 flex-1 mr-2">
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-medium text-sm text-slate-200 truncate group-hover:text-indigo-300 transition-colors">
-                                            {event.olympiadName}
-                                        </span>
-                                        {getStatusIcon(event.status)}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500 font-mono mt-1">
-                                        <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-medium">{event.subject}</span>
-                                        <span>•</span>
-                                        <span className="truncate font-medium text-slate-400">{event.stageName}</span>
-                                    </div>
-                                </div>
-                                <div className="flex flex-col items-end shrink-0">
-                                    <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800">
-                                        {formatDateRange(event.startDate, event.endDate)}
-                                    </span>
-                                </div>
-                            </div>
-                        ))
+        // Hide Registration if Completed
+        if ((event.stageName.toLowerCase().includes('регистрация') || event.stageName.toLowerCase().includes('registration')) && isCompleted) {
+            return;
+        }
+
+        if (end < now) { // Completed events
+            groupedEvents.recent.push(event);
+        } else if (end >= now && end <= fiveDaysFromNow) { // Ends within 5 days (Today/Current)
+            groupedEvents.today.push(event);
+        } else if (start > now && start <= fiveDaysFromNow) { // Starts within 5 days (Attention, Soon!)
+            groupedEvents.soon.push(event);
+        } else { // Future events
+            groupedEvents.future.push(event);
+        }
+    });
+
+    // Sort
+    groupedEvents.recent.sort((a, b) => new Date(b.endDate).getTime() - new Date(a.endDate).getTime());
+    groupedEvents.today.sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+    groupedEvents.soon.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+    // Sort Future: if ongoing (start <= now), use endDate; if future (start > now), use startDate
+    groupedEvents.future.sort((a, b) => {
+        const getSortDate = (e: Event) => {
+            const s = new Date(e.startDate);
+            return s <= now ? new Date(e.endDate) : s;
+        };
+        return getSortDate(a).getTime() - getSortDate(b).getTime();
+    });
+
+    const renderEvent = (event: Event, type: 'recent' | 'today' | 'soon' | 'future') => {
+        const isReg = event.stageName.toLowerCase().includes('регистрация');
+        const isFinal = event.stageName.toLowerCase().includes('финал') || event.stageName.toLowerCase().includes('заключительный');
+
+        let dateLabel = '';
+        let dateValue = new Date();
+
+        if (type === 'recent') {
+            dateLabel = 'Завершено';
+            dateValue = new Date(event.endDate);
+        } else if (type === 'today') {
+            dateLabel = 'До';
+            dateValue = new Date(event.endDate);
+        } else if (type === 'soon') {
+            dateLabel = 'Начало';
+            dateValue = new Date(event.startDate);
+        } else { // future
+            const start = new Date(event.startDate);
+            if (start <= now) {
+                dateLabel = 'До';
+                dateValue = new Date(event.endDate);
+            } else {
+                dateLabel = 'Начало';
+                dateValue = start;
+            }
+        }
+
+        const dateStr = dateValue.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' });
+
+        // Calculate urgency
+        const diffTime = dateValue.getTime() - now.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        let barColorClass = "bg-slate-600";
+        if (isFinal) {
+            barColorClass = "bg-red-500";
+        } else if (diffDays < 3 && diffDays >= 0 && type !== 'recent') {
+            barColorClass = "bg-red-500";
+        } else if (diffDays >= 3 && diffDays <= 5 && type !== 'recent') {
+            barColorClass = "bg-orange-500";
+        } else if (isReg) {
+            barColorClass = "bg-indigo-500";
+        }
+
+        const getStatusLabel = (s: string) => {
+            if (!s) return '';
+            const sl = s.toLowerCase();
+            if (sl === 'participant' || sl === 'участник') return 'Участник';
+            if (sl === 'winner' || sl === 'победитель') return 'Победитель';
+            if (sl === 'prizewinner' || sl === 'призер') return 'Призер';
+            if (sl === 'waiting' || sl === 'ожидание') return 'Ожидание';
+            if (sl === 'completed' || sl === 'выполнено') return 'Выполнено';
+            if (sl === 'inprogress' || sl === 'в работе') return 'В работе';
+            return s;
+        };
+
+        const statusLabel = getStatusLabel(event.status || '');
+
+        return (
+            <div
+                key={event.id + event.stageName}
+                onClick={() => navigate(`/olympiad/${event.id}`)}
+                className={cn(
+                    "flex items-center gap-3 p-3 rounded-lg border transition-all cursor-pointer hover:scale-[1.01]",
+                    "bg-slate-900/50 border-slate-800 hover:bg-slate-800/60"
+                )}
+            >
+                <div className={cn("w-1 h-8 rounded-full", barColorClass)} />
+                <div className="flex-1 min-w-0">
+                    <p className="font-medium text-slate-200 truncate">{event.olympiadName}</p>
+                    <p className="text-xs text-slate-400 truncate mt-0.5">
+                        <span className="text-slate-500">{dateLabel} {dateStr}</span>
+                        <span className="text-slate-600 mx-1.5">•</span>
+                        {event.subject && (
+                            <>
+                                <span className="text-slate-300 font-medium">{event.subject}</span>
+                                <span className="text-slate-600 mx-1.5">•</span>
+                            </>
+                        )}
+                        {event.stageName}
+                        {statusLabel && (
+                            <>
+                                <span className="text-slate-600 mx-1.5">•</span>
+                                <span className={cn(
+                                    "font-medium",
+                                    statusLabel === 'Победитель' ? "text-yellow-400" :
+                                        statusLabel === 'Призер' ? "text-orange-400" :
+                                            statusLabel === 'Ожидание' ? "text-blue-400" :
+                                                "text-slate-400"
+                                )}>{statusLabel}</span>
+                            </>
+                        )}
+                    </p>
+                </div>
+            </div>
+        );
+    };
+
+    const renderSection = (title: string, items: typeof events, colorClass: string, type: 'recent' | 'today' | 'soon' | 'future', isCollapsible = false, isCollapsed = false, toggleCollapse?: () => void) => {
+        if (items.length === 0) return null;
+        return (
+            <div className="space-y-2">
+                <div className="flex items-center gap-2 cursor-pointer" onClick={toggleCollapse}>
+                    <h4 className={cn("text-xs font-bold uppercase tracking-wider whitespace-nowrap", colorClass)}>{title}</h4>
+                    <div className={cn("h-[1px] w-full opacity-30", colorClass.replace('text-', 'bg-'))}></div>
+                    {isCollapsible && (
+                        <div className="text-slate-500">
+                            {isCollapsed ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+                        </div>
                     )}
                 </div>
+                {!isCollapsed && (
+                    <div className="space-y-2">
+                        {items.map(e => renderEvent(e, type))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <Card className="bg-slate-950 border-slate-800 h-full flex flex-col">
+            <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-400">
+                    <Calendar className="w-4 h-4" />
+                    Сегодня - {new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-y-auto space-y-6 pr-2 custom-scrollbar">
+                {renderSection("Внимание, скоро!", groupedEvents.soon, "text-red-400", 'soon')}
+                {renderSection("Недавно завершенные", groupedEvents.recent, "text-slate-500", 'recent', true, isRecentCollapsed, () => setIsRecentCollapsed(!isRecentCollapsed))}
+                {renderSection("Текущие", groupedEvents.today, "text-green-400", 'today')}
+                {renderSection("Будущие", groupedEvents.future, "text-blue-400", 'future')}
+
+                {groupedEvents.today.length === 0 &&
+                    groupedEvents.soon.length === 0 &&
+                    groupedEvents.future.length === 0 &&
+                    groupedEvents.recent.length === 0 && (
+                        <p className="text-slate-500 text-center py-8 text-xs">Активных событий нет.</p>
+                    )}
             </CardContent>
         </Card>
     );

@@ -121,10 +121,33 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                 contacts,
                 login,
                 password
+            },
+            include: {
+                profiles: {
+                    include: {
+                        stages: true
+                    }
+                }
             }
         });
 
-        // 2. Handle Profiles & Stages (Upsert Logic)
+        // 2. Handle Profiles Deletion
+        // Get IDs of profiles currently in DB
+        const existingProfileIds = olympiad.profiles.map(p => p.id);
+        // Get IDs of profiles in the request
+        const requestProfileIds = (profiles || [])
+            .filter((p: any) => p.id)
+            .map((p: any) => Number(p.id));
+
+        // Delete profiles that are not in the request
+        const profilesToDelete = existingProfileIds.filter(pid => !requestProfileIds.includes(pid));
+        if (profilesToDelete.length > 0) {
+            await prisma.profile.deleteMany({
+                where: { id: { in: profilesToDelete } }
+            });
+        }
+
+        // 3. Handle Profiles & Stages (Upsert Logic)
         if (profiles && Array.isArray(profiles)) {
             for (const p of profiles) {
                 if (p.id) {
@@ -140,7 +163,27 @@ export const updateOlympiad = async (req: Request, res: Response) => {
                         }
                     });
 
-                    // Handle Stages
+                    // Handle Stages Deletion for this profile
+                    const currentProfile = await prisma.profile.findUnique({
+                        where: { id: Number(p.id) },
+                        include: { stages: true }
+                    });
+
+                    if (currentProfile) {
+                        const existingStageIds = currentProfile.stages.map(s => s.id);
+                        const requestStageIds = (p.stages || [])
+                            .filter((s: any) => s.id)
+                            .map((s: any) => Number(s.id));
+
+                        const stagesToDelete = existingStageIds.filter(sid => !requestStageIds.includes(sid));
+                        if (stagesToDelete.length > 0) {
+                            await prisma.stage.deleteMany({
+                                where: { id: { in: stagesToDelete } }
+                            });
+                        }
+                    }
+
+                    // Handle Stages Upsert
                     if (p.stages && Array.isArray(p.stages)) {
                         for (const s of p.stages) {
                             if (s.id) {

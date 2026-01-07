@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import MainLayout from '@/layouts/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,70 +8,65 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Brain, Trophy, AlertCircle } from 'lucide-react';
 import { CalendarWidget } from '@/components/dashboard/CalendarWidget';
 import { MonthCalendar } from '@/components/dashboard/MonthCalendar';
-import { useNavigate } from 'react-router-dom';
 
 interface DashboardData {
     stats: {
         totalOlympiads: number;
-        totalWins: number;
         currentOlympiads: number;
-        completedOlympiads: number;
+        onRegistration: number;
+        qualifying: number;
+        finals: number;
+        results: {
+            participant: number;
+            participantFinal: number;
+            prize: number;
+            prizeFinal: number;
+            winner: number;
+            winnerFinal: number;
+            waiting: number;
+        };
     };
-    alerts: Array<{
+    alerts: {
         id: number;
-        type: 'Registration' | 'Event';
         olympiadName: string;
         subject: string;
         stageName: string;
         date: string;
-        isStart?: boolean;
-    }>;
-    upcoming: Array<{
-        id: number;
-        olympiadName: string;
-        subject: string;
-        stageName: string;
-        startDate: string;
-        endDate: string;
-        status?: string | null;
-    }>;
+        type: 'Registration' | 'Stage';
+        isStart: boolean;
+    }[];
+    upcoming: any[];
 }
 
 const Dashboard = () => {
+    const navigate = useNavigate();
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
-    const navigate = useNavigate();
-
-    const [username, setUsername] = useState('Чемпион');
+    const [error, setError] = useState(false);
 
     useEffect(() => {
         fetch('/api/dashboard')
-            .then(res => res.json())
-            .then(data => {
-                setData(data);
-                setLoading(false);
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to fetch');
+                return res.json();
             })
+            .then(setData)
             .catch(err => {
                 console.error(err);
-                setLoading(false);
-            });
-
-        fetch('/api/settings/username')
-            .then(res => res.json())
-            .then(data => {
-                if (data.value) setUsername(data.value);
+                setError(true);
             })
-            .catch(console.error);
+            .finally(() => setLoading(false));
     }, []);
 
     if (loading) {
         return (
             <MainLayout>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <Skeleton className="h-48" />
-                    <Skeleton className="h-48" />
-                    <Skeleton className="h-48" />
-                    <Skeleton className="h-64 md:col-span-3" />
+                <div className="space-y-6">
+                    <Skeleton className="h-32 w-full" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <Skeleton className="h-64 md:col-span-2" />
+                        <Skeleton className="h-64" />
+                    </div>
                 </div>
             </MainLayout>
         );
@@ -78,48 +74,76 @@ const Dashboard = () => {
 
     return (
         <MainLayout>
-            <div className="mb-8">
-                <h2 className="text-3xl font-bold text-white">Добро пожаловать, {username}! 👋</h2>
-                <p className="text-slate-400 mt-2">Давай посмотрим на твои успехи и планы.</p>
+            <div className="mb-6">
+                <h2 className="text-3xl font-bold text-white">Андрей, привет!</h2>
+                <p className="text-slate-400 mt-1">Давай посмотрим на твои успехи и планы.</p>
             </div>
 
             <div className="space-y-6">
-                {/* Top Row: Stats, Alerts, AI Coach (Compact) */}
+                {/* Top Row: Stats & Alerts */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                    {/* Stats Widget */}
-                    <Card className="bg-slate-900/50 border-slate-800">
-                        <CardHeader className="pb-2">
+                    {/* Stats */}
+                    <Card className="bg-slate-900/50 border-slate-800 col-span-1 md:col-span-2 lg:col-span-1">
+                        <CardHeader className="pb-2 pt-4">
                             <CardTitle className="flex items-center gap-2 text-sm font-medium text-slate-400">
                                 <Trophy className="w-4 h-4 text-yellow-500" />
                                 Статистика
                             </CardTitle>
                         </CardHeader>
-                        <CardContent>
-                            <div className="flex justify-between items-end">
-                                <div className="flex flex-col cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads')}>
-                                    <span className="text-3xl font-bold text-white">{data?.stats.totalOlympiads}</span>
-                                    <span className="text-xs text-slate-500">Всего</span>
+                        <CardContent className="pb-4">
+                            {/* Main Stats (Participation/Results) - Now Top */}
+                            <div className="grid grid-cols-4 gap-2 mb-6">
+                                <div className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?status=winner')}>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Победитель</p>
+                                    <p className="text-3xl font-bold text-yellow-400">
+                                        {data?.stats?.results?.winner || 0}
+                                    </p>
                                 </div>
-                                <div className="flex gap-6">
-                                    <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?filter=current')}>
-                                        <span className="text-3xl font-bold text-blue-400">{data?.stats.currentOlympiads}</span>
-                                        <span className="text-xs text-slate-500">Текущие</span>
-                                    </div>
-                                    <div className="flex flex-col items-end cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?filter=completed')}>
-                                        <span className="text-3xl font-bold text-slate-400">{data?.stats.completedOlympiads}</span>
-                                        <span className="text-xs text-slate-500">Завершенные</span>
-                                    </div>
-                                    <div className="flex flex-col items-end">
-                                        <span className="text-3xl font-bold text-green-400">{data?.stats.totalWins}</span>
-                                        <span className="text-xs text-slate-500">Побед</span>
-                                    </div>
+                                <div className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?status=prize')}>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Призер</p>
+                                    <p className="text-3xl font-bold text-orange-400">{data?.stats?.results?.prize || 0}</p>
+                                </div>
+                                <div className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?status=participant')}>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Участник</p>
+                                    <p className="text-3xl font-bold text-slate-200">{data?.stats?.results?.participant || 0}</p>
+                                </div>
+                                <div className="cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?status=waiting')}>
+                                    <p className="text-xs text-slate-500 uppercase tracking-wider mb-1">Ожидание</p>
+                                    <p className="text-3xl font-bold text-blue-400">{data?.stats?.results?.waiting || 0}</p>
+                                </div>
+                            </div>
+
+                            {/* Secondary Stats (Counts) - Now Bottom, Single Line, Compact */}
+                            <div className="border-t border-slate-800 pt-4 flex justify-between items-center gap-1">
+                                <div className="flex flex-col items-center min-w-[40px] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads')}>
+                                    <span className="text-lg font-bold text-white">{data?.stats?.totalOlympiads || 0}</span>
+                                    <span className="text-[9px] text-slate-500 uppercase">Всего</span>
+                                </div>
+                                <div className="w-[1px] h-8 bg-slate-800"></div>
+                                <div className="flex flex-col items-center min-w-[40px] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?filter=current')}>
+                                    <span className="text-lg font-bold text-green-400">{data?.stats?.currentOlympiads || 0}</span>
+                                    <span className="text-[9px] text-slate-500 uppercase">Актив</span>
+                                </div>
+                                <div className="w-[1px] h-8 bg-slate-800"></div>
+                                <div className="flex flex-col items-center min-w-[40px] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?stage=registration')}>
+                                    <span className="text-lg font-bold text-indigo-400">{data?.stats?.onRegistration || 0}</span>
+                                    <span className="text-[9px] text-slate-500 uppercase">Регистр</span>
+                                </div>
+                                <div className="w-[1px] h-8 bg-slate-800"></div>
+                                <div className="flex flex-col items-center min-w-[40px] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?stage=qualifying')}>
+                                    <span className="text-lg font-bold text-orange-400">{data?.stats?.qualifying || 0}</span>
+                                    <span className="text-[9px] text-slate-500 uppercase">Отбор</span>
+                                </div>
+                                <div className="w-[1px] h-8 bg-slate-800"></div>
+                                <div className="flex flex-col items-center min-w-[40px] cursor-pointer hover:opacity-80 transition-opacity" onClick={() => navigate('/olympiads?stage=final')}>
+                                    <span className="text-lg font-bold text-purple-400">{data?.stats?.finals || 0}</span>
+                                    <span className="text-[9px] text-slate-500 uppercase">Финал</span>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
-                    {/* Action Required (Alerts) */}
+                    {/* Alerts Widget */}
                     <Card className="bg-slate-900/50 border-slate-800">
                         <CardHeader className="pb-2">
                             <CardTitle className="flex items-center gap-2 text-sm font-medium text-red-400">
@@ -128,12 +152,12 @@ const Dashboard = () => {
                             </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-2">
-                            {data?.alerts.length === 0 ? (
+                            {!data?.alerts || data.alerts.length === 0 ? (
                                 <div className="flex items-center justify-center h-20">
                                     <p className="text-slate-500 text-sm">Все отлично!</p>
                                 </div>
                             ) : (
-                                data?.alerts.slice(0, 2).map((alert, idx) => (
+                                data.alerts.slice(0, 3).map((alert, idx) => (
                                     <div
                                         key={idx}
                                         onClick={() => navigate(`/olympiad/${alert.id}`)}
@@ -176,10 +200,10 @@ const Dashboard = () => {
 
                 {/* Bottom Row: Calendar/Timeline */}
                 <div className="grid grid-cols-1 gap-6">
-                    <div className="h-[500px]">
+                    <div className="h-[750px]">
                         <MonthCalendar events={data?.upcoming || []} />
                     </div>
-                    <div className="h-[400px]">
+                    <div className="h-[500px]">
                         <CalendarWidget events={data?.upcoming || []} />
                     </div>
                 </div>

@@ -7,6 +7,20 @@
 - **Project Path:** `/root/olymptracker`
 - **N8N Path:** `/opt/beget/n8n`
 
+#№ Server Infrastructure Rules (77.73.235.58)
+- n8n & Traefik: Ports 80, 443. 
+- Main App: Port 3000.
+- Shared Database: Postgres 16 (Service name: postgres).
+- DANGER: Never delete volumes or storage folders without explicit confirmation.
+- DOCKER: Always check API compatibility (Server is Ubuntu 24.04, Docker is latest).
+
+## n8n Co-existence Guidelines (CRITICAL)
+1. **Port Isolation**: Always check ports with `ss -tulpn` before changing docker-compose. n8n uses 80/443. App uses 3000. New services must use unique ports (e.g., 3001, 4000).
+2. **Database Safety**: Shared Postgres instance. NEVER run `docker compose down -v` or `rm -rf db_storage`. Use unique table prefixes (e.g., `olimp_`) to avoid conflicts with n8n tables.
+3. **Resource Limits**: Always add `deploy.resources.limits` to docker-compose services. Limit n8n to 0.5 CPU / 1GB RAM if modifying its config.
+4. **Env Safety**: Backup `.env` before changes (`cp .env .env.bak`). Be aware of multiple .env files.
+5. **Troubleshooting**: Check logs first: `docker compose logs --tail=50`.
+
 ## Database Configuration (Remote)
 - **Host:** `n8n-postgres-1`
 - **Port:** `5432`
@@ -32,7 +46,11 @@ scp -r c:\AG\olimp\server\src root@77.73.235.58:/root/olymptracker/server/
 scp c:\AG\olimp\server\prisma\schema.prisma root@77.73.235.58:/root/olymptracker/server/prisma/
 
 # Upload Configs
+# Upload Configs
 scp c:\AG\olimp\docker-compose.yml root@77.73.235.58:/root/olymptracker/
+
+# Upload Public Assets (Logo)
+scp -r c:\AG\olimp\client\public root@77.73.235.58:/root/olymptracker/client/
 ```
 
 ### 2. Apply Changes (Remote SSH)

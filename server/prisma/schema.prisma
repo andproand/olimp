@@ -54,6 +54,7 @@ model Stage {
   endDate        DateTime?
   regDeadline    DateTime?
   attempts       Int       @default(1)
+  order          Int       @default(0)
   profileId      Int
   profile        Profile   @relation(fields: [profileId], references: [id], onDelete: Cascade)
   results        Result[]

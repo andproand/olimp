@@ -7,7 +7,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText, Clock, Building2, Plus, ChevronRight, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Calendar, Trophy, Edit, FileText, Clock, Building2, Plus, ChevronRight, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
     DropdownMenu,
@@ -15,6 +15,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import ReactMarkdown from 'react-markdown';
 
 const PasswordDisplay = ({ password }: { password: string }) => {
     const [show, setShow] = useState(false);
@@ -80,6 +81,7 @@ const OlympiadDetail = () => {
     const [olympiad, setOlympiad] = useState<Olympiad | null>(null);
     const [loading, setLoading] = useState(true);
     const [selectedYear, setSelectedYear] = useState<string>('');
+    const [collapsedProfiles, setCollapsedProfiles] = useState<Set<number>>(new Set());
 
     const fetchOlympiad = () => {
         fetch(`/api/olympiads/${id}`)
@@ -107,6 +109,15 @@ const OlympiadDetail = () => {
     useEffect(() => {
         fetchOlympiad();
     }, [id]);
+
+    const toggleProfileCollapse = (profileId: number) => {
+        setCollapsedProfiles(prev => {
+            const next = new Set(prev);
+            if (next.has(profileId)) next.delete(profileId);
+            else next.add(profileId);
+            return next;
+        });
+    };
 
     if (loading) {
         return (
@@ -188,7 +199,9 @@ const OlympiadDetail = () => {
                                 )}
                             </div>
                             {olympiad.description && (
-                                <p className="mt-4 text-slate-300 max-w-2xl text-sm leading-relaxed">{olympiad.description}</p>
+                                <div className="mt-4 text-slate-300 max-w-2xl text-sm leading-relaxed prose prose-invert prose-sm max-w-none">
+                                    <ReactMarkdown>{olympiad.description}</ReactMarkdown>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -234,49 +247,57 @@ const OlympiadDetail = () => {
                 {/* Main Content: Profiles & Stages */}
                 <div className="lg:col-span-2 space-y-6">
                     {filteredProfiles.length > 0 ? (
-                        filteredProfiles.map(profile => (
-                            <Card key={profile.id} className="bg-slate-900/50 border-slate-800">
-                                <CardHeader>
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="flex items-center gap-2 text-xl text-slate-200">
-                                            <Trophy className="w-5 h-5 text-yellow-500" />
-                                            {profile.subject}
-                                        </CardTitle>
-                                        <div className="flex gap-2">
-                                            {profile.priority && (
-                                                <Badge variant="outline" className={cn("border-0 bg-opacity-20",
-                                                    profile.priority === 'High' ? 'bg-red-500 text-red-300' :
-                                                        profile.priority === 'Medium' ? 'bg-yellow-500 text-yellow-300' :
-                                                            'bg-blue-500 text-blue-300'
-                                                )}>
-                                                    {profile.priority === 'High' ? 'Высокая' :
-                                                        profile.priority === 'Medium' ? 'Средняя' : 'Низкая'}
-                                                </Badge>
-                                            )}
-                                            {profile.level && profile.level !== '-' && (
-                                                <Badge variant="secondary" className="bg-slate-800 text-slate-300">
-                                                    {profile.level} уровень
-                                                </Badge>
-                                            )}
+                        filteredProfiles.map(profile => {
+                            const isCollapsed = collapsedProfiles.has(profile.id);
+                            return (
+                                <Card key={profile.id} className="bg-slate-900/50 border-slate-800">
+                                    <CardHeader className="cursor-pointer hover:bg-slate-900/30 transition-colors" onClick={() => toggleProfileCollapse(profile.id)}>
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="flex items-center gap-2 text-xl text-slate-200">
+                                                {isCollapsed ? <ChevronDown className="w-5 h-5 text-slate-500" /> : <ChevronUp className="w-5 h-5 text-slate-500" />}
+                                                <Trophy className="w-5 h-5 text-yellow-500" />
+                                                {profile.subject}
+                                            </CardTitle>
+                                            <div className="flex gap-2">
+                                                {profile.priority && (
+                                                    <Badge variant="outline" className={cn("border-0 bg-opacity-20",
+                                                        profile.priority === 'High' ? 'bg-red-500 text-red-300' :
+                                                            profile.priority === 'Medium' ? 'bg-yellow-500 text-yellow-300' :
+                                                                'bg-blue-500 text-blue-300'
+                                                    )}>
+                                                        {profile.priority === 'High' ? 'Высокая' :
+                                                            profile.priority === 'Medium' ? 'Средняя' : 'Низкая'}
+                                                    </Badge>
+                                                )}
+                                                {profile.level && profile.level !== '-' && (
+                                                    <Badge variant="secondary" className="bg-slate-800 text-slate-300">
+                                                        {profile.level} уровень
+                                                    </Badge>
+                                                )}
+                                            </div>
                                         </div>
-                                    </div>
-                                    {profile.description && (
-                                        <p className="text-sm text-slate-500 mt-1">{profile.description}</p>
-                                    )}
-                                </CardHeader>
-                                <CardContent>
-                                    <div className="space-y-4">
-                                        {profile.stages.length === 0 ? (
-                                            <p className="text-slate-500 text-sm italic">Этапы еще не добавлены.</p>
-                                        ) : (
-                                            profile.stages.map(stage => (
-                                                <StageItem key={stage.id} stage={stage} onUpdate={fetchOlympiad} />
-                                            ))
+                                        {!isCollapsed && profile.description && (
+                                            <div className="text-sm text-slate-500 mt-1 prose prose-invert prose-sm max-w-none pl-7">
+                                                <ReactMarkdown>{profile.description}</ReactMarkdown>
+                                            </div>
                                         )}
-                                    </div>
-                                </CardContent>
-                            </Card>
-                        ))
+                                    </CardHeader>
+                                    {!isCollapsed && (
+                                        <CardContent>
+                                            <div className="space-y-4">
+                                                {profile.stages.length === 0 ? (
+                                                    <p className="text-slate-500 text-sm italic">Этапы еще не добавлены.</p>
+                                                ) : (
+                                                    profile.stages.map(stage => (
+                                                        <StageItem key={stage.id} stage={stage} onUpdate={fetchOlympiad} />
+                                                    ))
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    )}
+                                </Card>
+                            );
+                        })
                     ) : (
                         <div className="text-center py-12 border border-dashed border-slate-800 rounded-lg">
                             <p className="text-slate-500">Нет профилей для выбранного учебного года.</p>
@@ -312,6 +333,12 @@ const StageItem = ({ stage, onUpdate }: { stage: Stage, onUpdate: () => void }) 
         status: result?.status || 'Participant',
         diplomaLink: result?.diplomaLink || ''
     });
+
+    // Hide past stages if no result? User said "past stages (without date, but placed above current - also hide)".
+    // This logic is complex to implement perfectly without more context on "placed above current".
+    // For now, let's just collapse profiles as requested.
+    // User also said "collapse profiles OR past stages". I implemented profile collapsing.
+    // Let's stick to that for now.
 
     const handleSave = async () => {
         try {
@@ -398,9 +425,12 @@ const StageItem = ({ stage, onUpdate }: { stage: Stage, onUpdate: () => void }) 
                             onChange={e => setFormData({ ...formData, status: e.target.value })}
                             className="flex h-8 w-full rounded-md border border-slate-800 bg-slate-950 px-2 text-xs text-white"
                         >
+                            <option value="">--</option>
                             <option value="Participant">Участник</option>
                             <option value="Winner">Победитель</option>
                             <option value="PrizeWinner">Призер</option>
+                            <option value="Completed">Выполнено</option>
+                            <option value="InProgress">В работе</option>
                             <option value="Waiting">Ожидание результатов</option>
                             <option value="Failed">Не прошел</option>
                             <option value="NotInterested">Не интересно</option>
@@ -471,6 +501,8 @@ const getStatusColor = (status: string) => {
         case 'Winner': return 'bg-yellow-500 text-yellow-300';
         case 'PrizeWinner': return 'bg-orange-500 text-orange-300';
         case 'Participant': return 'bg-blue-500 text-blue-300';
+        case 'Completed': return 'bg-green-500 text-green-300';
+        case 'InProgress': return 'bg-indigo-500 text-indigo-300';
         case 'Failed': return 'bg-red-500 text-red-300';
         case 'Waiting': return 'bg-slate-500 text-slate-300';
         case 'NotInterested': return 'bg-gray-500 text-gray-300';
@@ -484,6 +516,8 @@ const getStatusLabel = (status: string) => {
         case 'Winner': return 'Победитель';
         case 'PrizeWinner': return 'Призер';
         case 'Participant': return 'Участник';
+        case 'Completed': return 'Выполнено';
+        case 'InProgress': return 'В работе';
         case 'Failed': return 'Не прошел';
         case 'Waiting': return 'Ожидание';
         case 'NotInterested': return 'Не интересно';

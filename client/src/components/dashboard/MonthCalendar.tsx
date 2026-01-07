@@ -82,18 +82,24 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
         const date = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
         date.setHours(0, 0, 0, 0);
 
-        return events.filter(e => {
-            // Filter out "Not Interested" / "Not Suitable"
-            if (e.status && (e.status.includes('NotInterested') || e.status.includes('NotSuitable') || e.status.includes('Не интересно') || e.status.includes('Не подходит'))) {
+        return events.filter(event => {
+            // Filter out unwanted statuses
+            const status = event.status?.toLowerCase();
+            if (status && (
+                status.includes('failed') || status.includes('не прошел') ||
+                status.includes('notinterested') || status.includes('не интересно') ||
+                status.includes('notsuitable') || status.includes('не подходит')
+            )) {
                 return false;
             }
 
-            const start = new Date(e.startDate);
+            if (!event.startDate) return false;
+            const start = new Date(event.startDate);
             start.setHours(0, 0, 0, 0);
-            const end = new Date(e.endDate);
+            const end = new Date(event.endDate || event.startDate);
             end.setHours(0, 0, 0, 0);
 
-            // Show only on Start Date and End Date
+            // Show only on Start Date and End Date to avoid clutter
             const isStart = date.getTime() === start.getTime();
             const isEnd = date.getTime() === end.getTime();
 
@@ -128,6 +134,9 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
                     <Button variant="ghost" size="icon" onClick={prevMonth} className="h-8 w-8 text-slate-400 hover:text-white">
                         <ChevronLeft className="w-4 h-4" />
                     </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setCurrentDate(new Date())} className="h-8 text-slate-400 hover:text-white text-xs font-medium px-2">
+                        Сегодня
+                    </Button>
                     <Button variant="ghost" size="icon" onClick={nextMonth} className="h-8 w-8 text-slate-400 hover:text-white">
                         <ChevronRight className="w-4 h-4" />
                     </Button>
@@ -139,7 +148,7 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
                 </div>
                 <div className="grid grid-cols-7 gap-1 auto-rows-fr">
                     {Array.from({ length: firstDay }).map((_, i) => (
-                        <div key={`empty-${i}`} className="h-24 bg-slate-950/30 rounded-md border border-transparent" />
+                        <div key={`empty-${i}`} className="h-[115px] bg-slate-950/30 rounded-md border border-transparent" />
                     ))}
                     {Array.from({ length: days }).map((_, i) => {
                         const day = i + 1;
@@ -150,34 +159,48 @@ export const MonthCalendar = ({ events }: MonthCalendarProps) => {
                             <div
                                 key={day}
                                 className={cn(
-                                    "h-24 p-1 rounded-md border bg-slate-950/50 flex flex-col gap-1 overflow-hidden transition-colors",
-                                    isToday ? "border-indigo-500/50 bg-indigo-950/10" : "border-slate-800/50 hover:border-slate-700"
+                                    "h-[115px] p-1 rounded-md border bg-slate-950/50 flex flex-col gap-1 overflow-hidden transition-colors",
+                                    isToday ? "bg-indigo-950/10 ring-1 ring-inset ring-indigo-500/50" : "border-slate-800/50 hover:border-slate-700"
                                 )}
                             >
-                                <span className={cn("text-xs font-medium ml-1", isToday ? "text-indigo-400" : "text-slate-400")}>
+                                <span className={cn(
+                                    "text-sm font-medium mb-1 inline-flex items-center justify-center w-6 h-6 rounded-full",
+                                    isToday ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20" : "text-slate-400"
+                                )}>
                                     {day}
                                 </span>
                                 <div className="flex flex-col gap-1 overflow-y-auto custom-scrollbar">
-                                    {dayEvents.map((event, idx) => (
-                                        <div
-                                            key={`${event.id}-${idx}`}
-                                            onClick={() => navigate(`/olympiad/${event.id}`)}
-                                            className={cn(
-                                                "text-[10px] p-1 rounded border flex items-center justify-between gap-1 cursor-pointer hover:opacity-80",
-                                                getStatusColor(event.status)
-                                            )}
-                                            title={`${event.olympiadName}: ${event.stageName} (${event.subject})`}
-                                        >
-                                            <div className="flex items-center gap-1 truncate">
-                                                {event.dayLabel === '(Начало)' && <ArrowUpRight className="w-3 h-3 text-green-400" />}
-                                                {event.dayLabel === '(Конец)' && <ArrowDownRight className="w-3 h-3 text-red-400" />}
-                                                <span className="font-bold">{getShortName(event.olympiadName, 15)}</span>
-                                                <span className="opacity-70">{getShortName(event.stageName, 3)}</span>
-                                                <span className="opacity-50">{getShortName(event.subject, 3)}</span>
+                                    {dayEvents.map((event, idx) => {
+                                        const isFinal = event.stageName.toLowerCase().includes('финал') || event.stageName.toLowerCase().includes('заключительный');
+                                        const isEnd = event.dayLabel === '(Конец)';
+
+                                        let bgClass = getStatusColor(event.status);
+                                        if (isFinal) {
+                                            bgClass = "bg-red-950/40 text-red-200 border-red-900/50";
+                                        }
+
+                                        return (
+                                            <div
+                                                key={`${event.id}-${idx}`}
+                                                onClick={() => navigate(`/olympiad/${event.id}`)}
+                                                className={cn(
+                                                    "text-[10px] p-1 rounded border flex items-center justify-between gap-1 cursor-pointer hover:opacity-80",
+                                                    bgClass,
+                                                    isEnd && "border-red-500/50"
+                                                )}
+                                                title={`${event.olympiadName}: ${event.stageName} (${event.subject})`}
+                                            >
+                                                <div className="flex items-center gap-1 truncate">
+                                                    {event.dayLabel === '(Начало)' && <ArrowUpRight className="w-3 h-3 text-green-400" />}
+                                                    {event.dayLabel === '(Конец)' && <ArrowDownRight className="w-3 h-3 text-red-400" />}
+                                                    <span className="font-bold">{getShortName(event.olympiadName, 15)}</span>
+                                                    <span className="opacity-70">{getShortName(event.stageName, 3)}</span>
+                                                    <span className="opacity-50">{getShortName(event.subject, 3)}</span>
+                                                </div>
+                                                {getStatusIcon(event.status)}
                                             </div>
-                                            {getStatusIcon(event.status)}
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         );

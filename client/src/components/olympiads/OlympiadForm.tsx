@@ -35,6 +35,8 @@ const olympiadSchema = z.object({
     // priority: z.enum(['High', 'Medium', 'Low']).default('Medium'), // Deprecated on Olympiad level
     description: z.string().optional(),
     contacts: z.string().optional(),
+    login: z.string().optional(),
+    password: z.string().optional(),
     profiles: z.array(profileSchema).default([]),
 });
 
@@ -55,6 +57,8 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
             website: '',
             description: '',
             contacts: '',
+            login: '',
+            password: '',
             profiles: []
         }
     });
@@ -129,7 +133,7 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
                 description: '',
                 priority: 'Medium',
                 academicYear: nextYear,
-                stages: []
+                stages: [{ name: 'Регистрация', type: 'Online', time: '00:00' }]
             });
         }
 
@@ -163,7 +167,7 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
                             {errors.website && <p className="text-red-400 text-xs">{errors.website.message}</p>}
                         </div>
                         <div className="space-y-2 md:col-span-2">
-                            <Label htmlFor="description" className="text-slate-400">Описание</Label>
+                            <Label htmlFor="description" className="text-slate-400">Описание <span className="text-xs text-slate-500">(Markdown поддерживается)</span></Label>
                             <textarea
                                 id="description"
                                 {...register("description")}
@@ -174,6 +178,14 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
                         <div className="space-y-2 md:col-span-2">
                             <Label htmlFor="contacts" className="text-slate-400">Контакты</Label>
                             <Input id="contacts" {...register("contacts")} placeholder="Email, телефон или ссылки на соцсети" className="bg-slate-950 border-slate-800 text-white" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="login" className="text-slate-400">Логин</Label>
+                            <Input id="login" {...register("login")} placeholder="Логин для входа" className="bg-slate-950 border-slate-800 text-white" />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="password" className="text-slate-400">Пароль</Label>
+                            <Input id="password" {...register("password")} placeholder="Пароль" className="bg-slate-950 border-slate-800 text-white" />
                         </div>
                     </div>
                 </CardContent>
@@ -193,7 +205,7 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
                     <div className="text-center py-8 border border-dashed border-slate-800 rounded-lg text-slate-500">
                         Нет профилей. Добавьте новый учебный год или профиль.
                         <div className="mt-4">
-                            <Button type="button" onClick={() => appendProfile({ subject: '', level: '-', description: '', priority: 'Medium', academicYear: '2025/2026', stages: [] })} variant="secondary">
+                            <Button type="button" onClick={() => appendProfile({ subject: '', level: '-', description: '', priority: 'Medium', academicYear: '2025/2026', stages: [{ name: 'Регистрация', type: 'Online', time: '00:00' }] })} variant="secondary">
                                 Добавить профиль (2025/2026)
                             </Button>
                         </div>
@@ -229,7 +241,7 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
                                 ))}
                                 <Button
                                     type="button"
-                                    onClick={() => appendProfile({ subject: '', level: '-', description: '', priority: 'Medium', academicYear: year, stages: [] })}
+                                    onClick={() => appendProfile({ subject: '', level: '-', description: '', priority: 'Medium', academicYear: year, stages: [{ name: 'Регистрация', type: 'Online', time: '00:00' }] })}
                                     variant="ghost"
                                     size="sm"
                                     className="w-full border border-dashed border-slate-800 text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30"
@@ -253,7 +265,7 @@ export const OlympiadForm = ({ initialData, onSubmit, isLoading }: OlympiadFormP
 };
 
 const ProfileSection = ({ index, control, register, remove, errors }: any) => {
-    const { fields: stageFields, append: appendStage, remove: removeStage } = useFieldArray({
+    const { fields: stageFields, append: appendStage, remove: removeStage, move: moveStage } = useFieldArray({
         control,
         name: `profiles.${index}.stages`
     });
@@ -316,7 +328,7 @@ const ProfileSection = ({ index, control, register, remove, errors }: any) => {
             {isExpanded && (
                 <CardContent className="pt-4 space-y-4">
                     <div className="space-y-2">
-                        <Label className="text-xs text-slate-500">Описание профиля</Label>
+                        <Label className="text-xs text-slate-500">Описание профиля <span className="text-[10px] text-slate-600">(Markdown)</span></Label>
                         <Input
                             {...register(`profiles.${index}.description`)}
                             placeholder="Дополнительная информация о профиле..."
@@ -327,8 +339,33 @@ const ProfileSection = ({ index, control, register, remove, errors }: any) => {
                     <div className="space-y-2">
                         <Label className="text-xs text-slate-500 mb-2 block">Этапы</Label>
                         {stageFields.map((stage, sIndex) => (
-                            <div key={stage.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-3 bg-slate-950/50 rounded border border-slate-800/50">
+                            <div key={stage.id} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-start p-3 bg-slate-950/50 rounded border border-slate-800/50 group">
                                 <input type="hidden" {...register(`profiles.${index}.stages.${sIndex}.id`)} />
+
+                                {/* Reordering Controls */}
+                                <div className="md:col-span-1 flex flex-col gap-1 justify-center h-full pt-1">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-slate-600 hover:text-white disabled:opacity-30"
+                                        onClick={() => moveStage(sIndex, sIndex - 1)}
+                                        disabled={sIndex === 0}
+                                    >
+                                        <ChevronUp className="w-3 h-3" />
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5 text-slate-600 hover:text-white disabled:opacity-30"
+                                        onClick={() => moveStage(sIndex, sIndex + 1)}
+                                        disabled={sIndex === stageFields.length - 1}
+                                    >
+                                        <ChevronDown className="w-3 h-3" />
+                                    </Button>
+                                </div>
+
                                 <div className="md:col-span-3 space-y-1">
                                     <Label className="text-xs text-slate-500">Название этапа</Label>
                                     <Input {...register(`profiles.${index}.stages.${sIndex}.name`)} placeholder="Отборочный" className="h-8 text-sm bg-slate-900 border-slate-800" />
@@ -342,13 +379,13 @@ const ProfileSection = ({ index, control, register, remove, errors }: any) => {
                                 </div>
                                 <div className="md:col-span-2 space-y-1">
                                     <Label className="text-xs text-slate-500">Время</Label>
-                                    <Input {...register(`profiles.${index}.stages.${sIndex}.time`)} placeholder="10:00" className="h-8 text-xs bg-slate-900 border-slate-800" />
+                                    <Input {...register(`profiles.${index}.stages.${sIndex}.time`)} placeholder="00:00" className="h-8 text-xs bg-slate-900 border-slate-800" />
                                 </div>
                                 <div className="md:col-span-2 space-y-1">
                                     <Label className="text-xs text-slate-500">Начало</Label>
                                     <Input type="date" {...register(`profiles.${index}.stages.${sIndex}.startDate`)} className="h-8 text-xs bg-slate-900 border-slate-800" />
                                 </div>
-                                <div className="md:col-span-2 space-y-1">
+                                <div className="md:col-span-1 space-y-1">
                                     <Label className="text-xs text-slate-500">Конец</Label>
                                     <Input type="date" {...register(`profiles.${index}.stages.${sIndex}.endDate`)} className="h-8 text-xs bg-slate-900 border-slate-800" />
                                 </div>
@@ -359,7 +396,7 @@ const ProfileSection = ({ index, control, register, remove, errors }: any) => {
                                 </div>
                             </div>
                         ))}
-                        <Button type="button" onClick={() => appendStage({ name: '', type: 'Offline' })} variant="ghost" size="sm" className="w-full border border-dashed border-slate-800 text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30">
+                        <Button type="button" onClick={() => appendStage({ name: '', type: 'Offline', time: '00:00' })} variant="ghost" size="sm" className="w-full border border-dashed border-slate-800 text-slate-500 hover:text-indigo-400 hover:border-indigo-500/30">
                             <Plus className="w-3 h-3 mr-2" />
                             Добавить этап
                         </Button>

@@ -15,54 +15,90 @@ export const getDashboardData = async (req: Request, res: Response) => {
         // 1. Stats
         const totalOlympiads = await prisma.olympiad.count();
 
-        // Wins: Winner or PrizeWinner
-        const totalWins = await prisma.result.count({
-            where: {
-                status: { in: ['Winner', 'PrizeWinner', 'Победитель', 'Призер'] } // Handle both English and potential Russian values if any
-            }
-        });
-
-        // Current: Olympiads with at least one active stage
-        const currentOlympiads = await prisma.olympiad.count({
-            where: {
-                profiles: {
-                    some: {
-                        stages: {
-                            some: {
-                                startDate: { lte: today },
-                                endDate: { gte: today }
-                            }
-                        }
+        // Fetch all profiles to calculate detailed current stats
+        const allProfiles = await prisma.profile.findMany({
+            include: {
+                stages: {
+                    include: {
+                        results: true
                     }
                 }
             }
         });
 
-        // Completed: Olympiads where ALL stages are in the past
-        // Note: This logic assumes an olympiad is "completed" only if it has stages and all are done.
-        // If it has no stages, is it completed? Let's assume no.
-        // Prisma 'every' returns true for empty lists, so we need to ensure it has stages.
-        // Easier approximation: Total - (Current + Future).
-        // But "Future" is hard to define perfectly.
-        // Let's use a simpler query for "Completed":
-        const completedOlympiads = await prisma.olympiad.count({
-            where: {
-                profiles: {
-                    some: {
-                        stages: {
-                            some: {} // Ensure at least one stage exists
-                        }
-                    },
-                    every: {
-                        stages: {
-                            every: {
-                                endDate: { lt: today }
-                            }
-                        }
+        let currentOlympiads = 0;
+        let onRegistration = 0;
+        let qualifying = 0;
+        let finals = 0;
+
+        const qualifyingKeywords = ['отборочный', 'муниципальный', 'школьный', 'первый этап', 'второй этап'];
+        const finalKeywords = ['заключительный', 'финал'];
+
+        for (const profile of allProfiles) {
+            // Find active stage
+            const activeStage = profile.stages.find(s => {
+                if (!s.startDate || !s.endDate) return false;
+                const start = new Date(s.startDate);
+                const end = new Date(s.endDate);
+                return start <= today && end >= today;
+            });
+
+            if (activeStage) {
+                currentOlympiads++; // It has an active stage
+
+                const stageName = activeStage.name.toLowerCase();
+                const hasResult = activeStage.results.length > 0;
+                // Assuming 'Выполнено' or 'Completed' status means we shouldn't count it as "active on registration" if specifically asked?
+                // User said: "number on registration (if stage is not in status 'Completed')"
+                // We check if there is a result with 'Completed' or 'Выполнено'
+                const isCompleted = activeStage.results.some(r => ['completed', 'выполнено'].includes(r.status.toLowerCase()));
+
+                if (stageName.includes('регистрация') || stageName.includes('registration')) {
+                    if (!isCompleted) {
+                        onRegistration++;
                     }
+                } else if (qualifyingKeywords.some(k => stageName.includes(k))) {
+                    qualifying++;
+                } else if (finalKeywords.some(k => stageName.includes(k))) {
+                    finals++;
                 }
             }
+        }
+
+        // Helper to count results
+        // ... (rest of the code for results counting remains similar but we can reuse the fetched data if we want, but keeping existing logic for results is fine for now to minimize changes, though we can optimize)
+
+        // Actually, let's keep the existing result counting logic as it was working fine, just adding the new stats.
+        const allResults = await prisma.result.findMany({
+            where: {
+                status: { in: ['Participant', 'Winner', 'PrizeWinner', 'Waiting', 'Участник', 'Победитель', 'Призер', 'Ожидание'] }
+            },
+            include: {
+                stage: true
+            }
         });
+
+        const isFinalStage = (name: string) => {
+            const n = name.toLowerCase();
+            return n.includes('заключительн') || n.includes('финал') || n.includes('final');
+        };
+
+        const stats = {
+            totalOlympiads,
+            currentOlympiads,
+            onRegistration,
+            qualifying,
+            finals,
+            results: {
+                participant: allResults.filter(r => ['Participant', 'Участник'].includes(r.status)).length,
+                participantFinal: allResults.filter(r => ['Participant', 'Участник'].includes(r.status) && isFinalStage(r.stage.name)).length,
+                prize: allResults.filter(r => ['PrizeWinner', 'Призер'].includes(r.status)).length,
+                prizeFinal: allResults.filter(r => ['PrizeWinner', 'Призер'].includes(r.status) && isFinalStage(r.stage.name)).length,
+                winner: allResults.filter(r => ['Winner', 'Победитель'].includes(r.status)).length,
+                winnerFinal: allResults.filter(r => ['Winner', 'Победитель'].includes(r.status) && isFinalStage(r.stage.name)).length,
+                waiting: allResults.filter(r => ['Waiting', 'Ожидание'].includes(r.status)).length,
+            }
+        };
 
         // 2. Alerts (Action Required)
         const alerts = await prisma.stage.findMany({
@@ -96,9 +132,6 @@ export const getDashboardData = async (req: Request, res: Response) => {
         });
 
         // 3. Events (Calendar)
-        // Fetch all relevant events (past, current, future) for the calendar widget
-        // The frontend filters them, but we can fetch a reasonable range or all active ones.
-        // For now, let's fetch all stages to populate the calendar fully.
         const events = await prisma.stage.findMany({
             include: {
                 profile: {
@@ -106,7 +139,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
                         olympiad: true
                     }
                 },
-                results: true // Include results to show status
+                results: true
             },
             orderBy: {
                 startDate: 'asc'
@@ -114,14 +147,9 @@ export const getDashboardData = async (req: Request, res: Response) => {
         });
 
         res.json({
-            stats: {
-                totalOlympiads,
-                totalWins,
-                currentOlympiads,
-                completedOlympiads
-            },
+            stats,
             alerts: alerts.map(stage => ({
-                id: stage.profile.olympiad.id, // Link to Olympiad
+                id: stage.profile.olympiad.id,
                 type: stage.regDeadline && new Date(stage.regDeadline) <= threeDaysFromNow && new Date(stage.regDeadline) >= today ? 'Registration' : 'Event',
                 olympiadName: stage.profile.olympiad.name,
                 subject: stage.profile.subject,
@@ -136,7 +164,7 @@ export const getDashboardData = async (req: Request, res: Response) => {
                 stageName: stage.name,
                 startDate: stage.startDate,
                 endDate: stage.endDate,
-                status: stage.results.length > 0 ? stage.results[0].status : null // Pass the result status
+                status: stage.results.length > 0 ? stage.results[0].status : null
             }))
         });
 

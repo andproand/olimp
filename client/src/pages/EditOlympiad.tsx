@@ -17,7 +17,6 @@ const EditOlympiad = () => {
             .then(res => res.json())
             .then(data => {
                 // Transform data to match form shape if necessary
-                // The API returns structure similar to form, but we might need to handle nulls
                 const formData = {
                     ...data,
                     website: data.website || '',
@@ -60,6 +59,25 @@ const EditOlympiad = () => {
             // TODO: Show error toast
         }
     };
+
+    // Hotkey for save
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                // We can't easily trigger the form submit from here without a ref to the form button or similar.
+                // But we can dispatch a custom event or use a ref if we passed it down.
+                // For now, let's just rely on the user clicking save, or implement a more complex ref forwarding.
+                // Actually, the user asked for a hotkey.
+                // Let's try to find the submit button and click it.
+                const submitBtn = document.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitBtn) submitBtn.click();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     if (loading) {
         return (
