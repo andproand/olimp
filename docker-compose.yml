@@ -11,11 +11,10 @@ services:
       - "3001:3001"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://user:1tGythIngPZJeuZ@n8n-postgres-1:5432/n8n?schema=olymptracker
+      - DATABASE_URL=postgresql://olimp_user:olimp_password@127.0.0.1:5432/olimp_db?schema=public
       - PORT=3001
     networks:
       - default
-      - n8n_network # Placeholder name, user needs to verify
 
   client:
     build:
@@ -24,7 +23,7 @@ services:
     container_name: olymptracker-client
     restart: always
     ports:
-      - "3000:80" # Serving static files via Nginx or similar
+      - "3000:80" # Serving static files via Nginx or similar (for Docker deployments)
     depends_on:
       - server
     networks:
@@ -32,6 +31,3 @@ services:
 
 networks:
   default:
-  n8n_network:
-    external: true
-    name: n8n_default # Inferred from folder /opt/beget/n8n

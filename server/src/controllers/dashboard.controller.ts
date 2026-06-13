@@ -15,18 +15,21 @@ export const getDashboardData = async (req: Request, res: Response) => {
         // 1. Stats
         const totalOlympiads = await prisma.olympiad.count();
 
-        // Fetch all profiles to calculate detailed current stats
-        const allProfiles = await prisma.profile.findMany({
+        // Fetch only active stages (that overlap with today) to calculate detailed current stats
+        const activeStages = await prisma.stage.findMany({
+            where: {
+                startDate: { lte: today },
+                endDate: { gte: today }
+            },
             include: {
-                stages: {
-                    include: {
-                        results: true
+                results: {
+                    select: {
+                        status: true
                     }
                 }
             }
         });
 
-        let currentOlympiads = 0;
         let onRegistration = 0;
         let qualifying = 0;
         let finals = 0;
@@ -34,47 +37,37 @@ export const getDashboardData = async (req: Request, res: Response) => {
         const qualifyingKeywords = ['отборочный', 'муниципальный', 'школьный', 'первый этап', 'второй этап'];
         const finalKeywords = ['заключительный', 'финал'];
 
-        for (const profile of allProfiles) {
-            // Find active stage
-            const activeStage = profile.stages.find(s => {
-                if (!s.startDate || !s.endDate) return false;
-                const start = new Date(s.startDate);
-                const end = new Date(s.endDate);
-                return start <= today && end >= today;
-            });
+        const activeProfileIds = new Set<number>();
+        for (const stage of activeStages) {
+            activeProfileIds.add(stage.profileId);
 
-            if (activeStage) {
-                currentOlympiads++; // It has an active stage
+            const stageName = stage.name.toLowerCase();
+            const isCompleted = stage.results.some(r => ['completed', 'выполнено'].includes(r.status.toLowerCase()));
 
-                const stageName = activeStage.name.toLowerCase();
-                const hasResult = activeStage.results.length > 0;
-                // Assuming 'Выполнено' or 'Completed' status means we shouldn't count it as "active on registration" if specifically asked?
-                // User said: "number on registration (if stage is not in status 'Completed')"
-                // We check if there is a result with 'Completed' or 'Выполнено'
-                const isCompleted = activeStage.results.some(r => ['completed', 'выполнено'].includes(r.status.toLowerCase()));
-
-                if (stageName.includes('регистрация') || stageName.includes('registration')) {
-                    if (!isCompleted) {
-                        onRegistration++;
-                    }
-                } else if (qualifyingKeywords.some(k => stageName.includes(k))) {
-                    qualifying++;
-                } else if (finalKeywords.some(k => stageName.includes(k))) {
-                    finals++;
+            if (stageName.includes('регистрация') || stageName.includes('registration')) {
+                if (!isCompleted) {
+                    onRegistration++;
                 }
+            } else if (qualifyingKeywords.some(k => stageName.includes(k))) {
+                qualifying++;
+            } else if (finalKeywords.some(k => stageName.includes(k))) {
+                finals++;
             }
         }
+        const currentOlympiads = activeProfileIds.size;
 
-        // Helper to count results
-        // ... (rest of the code for results counting remains similar but we can reuse the fetched data if we want, but keeping existing logic for results is fine for now to minimize changes, though we can optimize)
-
-        // Actually, let's keep the existing result counting logic as it was working fine, just adding the new stats.
+        // Fetch only status and stage name for result stats calculation
         const allResults = await prisma.result.findMany({
             where: {
                 status: { in: ['Participant', 'Winner', 'PrizeWinner', 'Waiting', 'Участник', 'Победитель', 'Призер', 'Ожидание'] }
             },
-            include: {
-                stage: true
+            select: {
+                status: true,
+                stage: {
+                    select: {
+                        name: true
+                    }
+                }
             }
         });
 

@@ -1,34 +1,25 @@
 # Project Rules & Deployment Guide
 
 ## Server Details
-- **IP:** 77.73.235.58
+- **IP:** 104.253.18.168
 - **User:** root
-- **Password:** `0S*IqigwcJHi`
-- **Project Path:** `/root/olymptracker`
-- **N8N Path:** `/opt/beget/n8n`
+- **Project Path:** `/root/olimp`
 
-#№ Server Infrastructure Rules (77.73.235.58)
-- n8n & Traefik: Ports 80, 443. 
-- Main App: Port 3000.
-- Shared Database: Postgres 16 (Service name: postgres).
-- DANGER: Never delete volumes or storage folders without explicit confirmation.
-- DOCKER: Always check API compatibility (Server is Ubuntu 24.04, Docker is latest).
+## Server Infrastructure Rules (104.253.18.168)
+- **olimp-gateway.service**: Auth Gateway & Client Static Server (runs on Port 18795). Serves built frontend files from `client/dist` and proxies API requests.
+- **olimp-backend.service**: Express Backend Application (runs on Port 3001).
+- **olimp-postgres**: Docker container running PostgreSQL 16 (maps port 5432 to loopback `127.0.0.1:5432`).
+- n8n & Traefik: **Not installed and not required** on this server.
+- DANGER: Never delete volumes or storage directories of the `olimp-postgres` container.
 
-## n8n Co-existence Guidelines (CRITICAL)
-1. **Port Isolation**: Always check ports with `ss -tulpn` before changing docker-compose. n8n uses 80/443. App uses 3000. New services must use unique ports (e.g., 3001, 4000).
-2. **Database Safety**: Shared Postgres instance. NEVER run `docker compose down -v` or `rm -rf db_storage`. Use unique table prefixes (e.g., `olimp_`) to avoid conflicts with n8n tables.
-3. **Resource Limits**: Always add `deploy.resources.limits` to docker-compose services. Limit n8n to 0.5 CPU / 1GB RAM if modifying its config.
-4. **Env Safety**: Backup `.env` before changes (`cp .env .env.bak`). Be aware of multiple .env files.
-5. **Troubleshooting**: Check logs first: `docker compose logs --tail=50`.
-
-## Database Configuration (Remote)
-- **Host:** `n8n-postgres-1`
+## Database Configuration (Local Docker)
+- **Host:** `127.0.0.1`
 - **Port:** `5432`
-- **Database:** `n8n`
-- **User:** `user`
-- **Password:** `1tGythIngPZJeuZ`
+- **Database:** `olimp_db`
+- **User:** `olimp_user`
+- **Password:** `olimp_password`
 - **Connection String:** 
-  `postgresql://user:1tGythIngPZJeuZ@n8n-postgres-1:5432/n8n?schema=public`
+  `postgresql://olimp_user:olimp_password@127.0.0.1:5432/olimp_db?schema=public`
 
 ## Deployment Workflow
 
@@ -38,44 +29,58 @@
 cd c:\AG\olimp
 
 # Upload Client Code
-scp -r c:\AG\olimp\client\src root@77.73.235.58:/root/olymptracker/client/
-scp c:\AG\olimp\client\package.json root@77.73.235.58:/root/olymptracker/client/
+scp -r c:\AG\olimp\client\src root@104.253.18.168:/root/olimp/client/
+scp c:\AG\olimp\client\package.json root@104.253.18.168:/root/olimp/client/
+scp c:\AG\olimp\client\vite.config.ts root@104.253.18.168:/root/olimp/client/
 
 # Upload Server Code
-scp -r c:\AG\olimp\server\src root@77.73.235.58:/root/olymptracker/server/
-scp c:\AG\olimp\server\prisma\schema.prisma root@77.73.235.58:/root/olymptracker/server/prisma/
+scp -r c:\AG\olimp\server\src root@104.253.18.168:/root/olimp/server/
+scp c:\AG\olimp\server\package.json root@104.253.18.168:/root/olimp/server/
+scp c:\AG\olimp\server\prisma\schema.prisma root@104.253.18.168:/root/olimp/server/prisma/
 
 # Upload Configs
-# Upload Configs
-scp c:\AG\olimp\docker-compose.yml root@77.73.235.58:/root/olymptracker/
-
-# Upload Public Assets (Logo)
-scp -r c:\AG\olimp\client\public root@77.73.235.58:/root/olymptracker/client/
+scp c:\AG\olimp\gateway.js root@104.253.18.168:/root/olimp/
+scp c:\AG\olimp\login.html root@104.253.18.168:/root/olimp/
+scp c:\AG\olimp\docker-compose.yml root@104.253.18.168:/root/olimp/
 ```
 
 ### 2. Apply Changes (Remote SSH)
 **Step 1: Connect**
 ```bash
-ssh root@77.73.235.58
+ssh root@104.253.18.168
 ```
 
-**Step 2: Rebuild Containers**
+**Step 2: Build and Restart Backend**
 ```bash
-cd /root/olymptracker
-docker-compose down
-docker-compose up -d --build
+cd /root/olimp/server
+npm install
+npm run build
+npx prisma generate
+systemctl restart olimp-backend
 ```
 
-**Step 3: Apply Database Migrations**
+**Step 3: Build Client**
 ```bash
-cd /root/olymptracker
-docker exec -it olymptracker-server npx prisma db push
+cd /root/olimp/client
+npm install
+npm run build
+```
+
+**Step 4: Restart Gateway (if gateway.js or login.html changed)**
+```bash
+systemctl restart olimp-gateway
+```
+
+**Step 5: Apply Database Migrations (if needed)**
+```bash
+cd /root/olimp/server
+npx prisma db push
 ```
 
 ## Development Rules
-- **Frontend:** React + Vite + Shadcn UI (`c:\AG\olimp\client`)
-- **Backend:** Node.js + Express + Prisma (`c:\AG\olimp\server`)
-- **Database:** PostgreSQL (Managed via Docker)
+- **Frontend:** React + Vite + Shadcn UI (`c:\AG\olimp\client` / `/root/olimp/client`)
+- **Backend:** Node.js + Express + Prisma (`c:\AG\olimp\server` / `/root/olimp/server`)
+- **Database:** PostgreSQL (Managed via Docker container `olimp-postgres`)
 - **State Management:** React Query / Local State
 - **Styling:** Tailwind CSS
 

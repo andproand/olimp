@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Olymp Tracker</string>
+    <string name="title_activity_main">Olymp Tracker</string>
+    <string name="package_name">ru.olymp.tracker</string>
+    <string name="custom_url_scheme">ru.olymp.tracker</string>
+</resources>

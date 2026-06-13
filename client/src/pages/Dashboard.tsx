@@ -72,6 +72,22 @@ const Dashboard = () => {
         );
     }
 
+    if (error) {
+        return (
+            <MainLayout>
+                <div className="flex flex-col items-center justify-center h-[50vh] space-y-4">
+                    <p className="text-red-500 font-medium">Не удалось загрузить данные дашборда.</p>
+                    <button 
+                        onClick={() => window.location.reload()} 
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 transition"
+                    >
+                        Повторить попытку
+                    </button>
+                </div>
+            </MainLayout>
+        );
+    }
+
     return (
         <MainLayout>
             <div className="mb-6">
